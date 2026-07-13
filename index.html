@@ -241,6 +241,7 @@
           id: rp.id, name: rp.name, room: rp.room || "", dx: rp.dx || "", ef: rp.ef || "",
           unit: "floor", tasks: [],
           focus: rp.focus || {}, renalValue: rp.renalValue || "", renalTrend: rp.renalTrend || "", crcl: rp.crcl || "",
+          tdmAgent: rp.tdmAgent || "", tdmNextTrough: rp.tdmNextTrough || "", tdmTarget: rp.tdmTarget || "",
           checksByDate: rp.checksByDate || {}
         });
       });
@@ -256,6 +257,9 @@
       if(p.renalValue === undefined) p.renalValue = "";
       if(p.renalTrend === undefined) p.renalTrend = "";
       if(p.crcl === undefined) p.crcl = "";
+      if(p.tdmAgent === undefined) p.tdmAgent = "";
+      if(p.tdmNextTrough === undefined) p.tdmNextTrough = "";
+      if(p.tdmTarget === undefined) p.tdmTarget = "";
       if(!p.checksByDate) p.checksByDate = {};
       if(p.dx === undefined) p.dx = "";
       if(p.ef === undefined) p.ef = "";
@@ -289,12 +293,6 @@
       { id: "ins-a1c", t: "A1C on file" },
       { id: "ins-regimen", t: "Sliding scale vs basal-bolus appropriate" },
     ]},
-    tdm: { label: "TDM / Levels", items: [
-      { id: "tdm-agent", t: "TDM agent(s) identified", n: "Heparin, vancomycin, amiodarone, digoxin, etc." },
-      { id: "tdm-level", t: "Level/trough reviewed and in target range" },
-      { id: "tdm-dose", t: "Dose adjusted per level and renal function" },
-      { id: "tdm-next", t: "Next level due / scheduled" },
-    ]},
     hfref: { label: "HFrEF (EF ≤40%)", items: [
       { id: "hfref-arni", t: "ARNI / ACEi / ARB", n: "Continued, held, or contraindicated — document why" },
       { id: "hfref-bb", t: "Beta-blocker" },
@@ -320,6 +318,20 @@
 
   var UNIT_LABELS = { ccu: "CCU", floor: "Cardiac Floor" };
   var UNIT_ORDER = ["ccu", "floor"];
+
+  // TDM is rendered as a dedicated Agent + Next Trough Due mini-form rather than a checklist,
+  // so it's toggled through the same focus-chip mechanism but ordered/labeled separately.
+  var FOCUS_ORDER = ["abx", "insulin", "tdm", "hfref", "hfpef", "af", "acs"];
+  var TDM_AGENTS = ["", "Vancomycin", "Gentamicin", "Digoxin", "Other"];
+  function focusLabel(key){
+    return key === "tdm" ? "TDM / Levels" : ROUNDS_FOCUS_AREAS[key].label;
+  }
+  function formatDateTime(dtStr){
+    if(!dtStr) return "";
+    var d = new Date(dtStr);
+    if(isNaN(d.getTime())) return dtStr;
+    return d.toLocaleDateString(undefined, { month:"short", day:"numeric" }) + " " + d.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
+  }
 
   // ================= DATE HELPERS =================
   function todayStr(){
@@ -363,7 +375,8 @@
     if(!name) return;
     var p = {
       id: uid(), name: name, room: roomEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
-      unit: unitEl.value, tasks: [], focus: {}, renalValue: "", renalTrend: "", crcl: "", checksByDate: {}
+      unit: unitEl.value, tasks: [], focus: {}, renalValue: "", renalTrend: "", crcl: "",
+      tdmAgent: "", tdmNextTrough: "", tdmTarget: "", checksByDate: {}
     };
     state.patients.unshift(p);
     nameEl.value = ""; roomEl.value = ""; dxEl.value = ""; efEl.value = "";
@@ -571,18 +584,28 @@
     var coreHtml = ROUNDS_CORE_ITEMS.map(function(item){ return roundsItemHtml(p.id, item, today, prev); }).join("");
 
     var focusHtml = "";
-    Object.keys(ROUNDS_FOCUS_AREAS).forEach(function(key){
-      if(p.focus[key]){
-        var area = ROUNDS_FOCUS_AREAS[key];
-        focusHtml += '<div class="rounds-section"><div class="rounds-section-title">' + escapeHtml(area.label) + '</div>' +
-          area.items.map(function(item){ return roundsItemHtml(p.id, item, today, prev); }).join("") +
+    FOCUS_ORDER.forEach(function(key){
+      if(!p.focus[key]) return;
+      if(key === "tdm"){
+        focusHtml += '<div class="rounds-section"><div class="rounds-section-title">TDM / Levels</div>' +
+          '<div class="rounds-head-row">' +
+            '<div class="rounds-field"><label>Agent</label><select data-field="tdmAgent" data-pid="' + p.id + '">' +
+              TDM_AGENTS.map(function(a){ return '<option value="' + a + '"' + (p.tdmAgent === a ? " selected" : "") + '>' + (a || "— Select —") + '</option>'; }).join("") +
+            '</select></div>' +
+            '<div class="rounds-field"><label>Next Trough Due</label><input type="datetime-local" value="' + escapeHtml(p.tdmNextTrough) + '" data-field="tdmNextTrough" data-pid="' + p.id + '" style="width:190px;"></div>' +
+            '<div class="rounds-field"><label>Target Level</label><input type="text" value="' + escapeHtml(p.tdmTarget) + '" data-field="tdmTarget" data-pid="' + p.id + '" style="width:110px;"></div>' +
+          '</div>' +
         '</div>';
+        return;
       }
+      var area = ROUNDS_FOCUS_AREAS[key];
+      focusHtml += '<div class="rounds-section"><div class="rounds-section-title">' + escapeHtml(area.label) + '</div>' +
+        area.items.map(function(item){ return roundsItemHtml(p.id, item, today, prev); }).join("") +
+      '</div>';
     });
 
-    var chipsHtml = Object.keys(ROUNDS_FOCUS_AREAS).map(function(key){
-      var area = ROUNDS_FOCUS_AREAS[key];
-      return '<button type="button" class="focus-chip' + (p.focus[key] ? " active" : "") + '" data-focus-toggle="' + p.id + '" data-focus-key="' + key + '">' + escapeHtml(area.label) + '</button>';
+    var chipsHtml = FOCUS_ORDER.map(function(key){
+      return '<button type="button" class="focus-chip' + (p.focus[key] ? " active" : "") + '" data-focus-toggle="' + p.id + '" data-focus-key="' + key + '">' + escapeHtml(focusLabel(key)) + '</button>';
     }).join("");
 
     var card = document.createElement("div");
@@ -750,6 +773,13 @@
     if(p.renalValue) renalBits.push("eGFR " + escapeHtml(p.renalValue) + (p.renalTrend ? " " + p.renalTrend : ""));
     if(p.crcl) renalBits.push("CrCl " + escapeHtml(p.crcl));
     if(renalBits.length) html += '<p class="print-dim" style="margin:6px 0 0 0;">Renal: ' + renalBits.join(" · ") + '</p>';
+    if(p.focus.tdm){
+      var tdmBits = [];
+      if(p.tdmAgent) tdmBits.push("Agent: " + escapeHtml(p.tdmAgent));
+      if(p.tdmTarget) tdmBits.push("Target: " + escapeHtml(p.tdmTarget));
+      if(p.tdmNextTrough) tdmBits.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
+      html += '<p class="print-dim" style="margin:2px 0 0 0;">TDM/Levels — ' + (tdmBits.length ? tdmBits.join(" · ") : "not yet specified") + '</p>';
+    }
     html += '</div>';
 
     html += '<div class="print-section"><h2>Open Follow-Up Tasks (' + openTasks.length + ')</h2>';
@@ -834,11 +864,19 @@
     if(p.renalValue) renalBits.push("eGFR " + escapeHtml(p.renalValue) + (p.renalTrend ? " " + p.renalTrend : ""));
     if(p.crcl) renalBits.push("CrCl " + escapeHtml(p.crcl));
     var renalCell = renalBits.length ? renalBits.join("<br>") : "—";
-    var focusCell = Object.keys(ROUNDS_FOCUS_AREAS).filter(function(key){ return p.focus[key]; }).map(function(key){
+    var focusParts = Object.keys(ROUNDS_FOCUS_AREAS).filter(function(key){ return p.focus[key]; }).map(function(key){
       var area = ROUNDS_FOCUS_AREAS[key];
       var itemsStr = area.items.map(function(item){ return (today[item.id] ? "✓" : "☐") + escapeHtml(item.t); }).join("  ");
       return "<div><strong>" + escapeHtml(area.label) + ":</strong> " + itemsStr + "</div>";
-    }).join("");
+    });
+    if(p.focus.tdm){
+      var tdmBits = [];
+      if(p.tdmAgent) tdmBits.push(escapeHtml(p.tdmAgent));
+      if(p.tdmTarget) tdmBits.push("target " + escapeHtml(p.tdmTarget));
+      if(p.tdmNextTrough) tdmBits.push("next trough " + formatDateTime(p.tdmNextTrough));
+      focusParts.push("<div><strong>TDM / Levels:</strong> " + (tdmBits.length ? tdmBits.join(" · ") : '<span class="print-dim">not yet specified</span>') + "</div>");
+    }
+    var focusCell = focusParts.join("");
     if(!focusCell) focusCell = '<span class="print-dim">—</span>';
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
     var todoCell = openTasks.length
