@@ -50,6 +50,8 @@
 
   .panel{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px;}
   .panel-title{font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--teal); margin:0 0 12px 0;}
+  .panel-title-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+  .panel-title-row .panel-title{margin:0;}
 
   /* ---------- Patients / Tracker ---------- */
   .add-patient-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;}
@@ -91,10 +93,11 @@
   .del-task{background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:15px; padding:0 4px;}
   .del-task:hover{color:var(--red);}
 
-  .add-task-row{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;}
+  .add-task-row{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; align-items:center;}
   .add-task-row input[type=text]{flex:2; min-width:160px;}
   .add-task-row input[type=date]{flex:1; min-width:130px;}
   .add-task-row select{flex:0 0 auto;}
+  .add-task-row .spacer{flex:1 1 100%; height:0;}
 
   .empty{color:var(--text-faint); font-size:13px; text-align:center; padding:30px 0;}
 
@@ -123,6 +126,42 @@
     nav.tabs button{padding:7px 10px; font-size:12px;}
     .task-due{white-space:normal;}
   }
+
+  /* ---------- Print / PDF export ---------- */
+  #print-area{display:none;}
+  @media print{
+    @page{ margin:1.4cm; }
+    body > *:not(#print-area){ display:none !important; }
+    body{ background:#fff !important; padding:0 !important; }
+    #print-area{ display:block !important; background:#fff; color:#1a1a1a;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  }
+  .print-header{border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:16px;}
+  .print-header h1{font-size:19px; margin:0 0 4px 0;}
+  .print-meta{font-size:11px; color:#555;}
+  .print-patient{margin-bottom:14px;}
+  .print-patient-name{font-size:16px; font-weight:700;}
+  .print-patient-room{font-size:12px; color:#555; margin-top:1px;}
+  .print-section{margin-bottom:18px;}
+  .print-section h2{font-size:12.5px; text-transform:uppercase; letter-spacing:0.5px; color:#333;
+    border-bottom:1px solid #ccc; padding-bottom:4px; margin:0 0 8px 0;}
+  .print-table{width:100%; border-collapse:collapse; font-size:12px;}
+  .print-table th, .print-table td{text-align:left; padding:5px 8px; border-bottom:1px solid #ddd; vertical-align:top;}
+  .print-table th{font-size:10.5px; text-transform:uppercase; color:#555; font-weight:700;}
+  .print-status-overdue{color:#b91c1c; font-weight:700;}
+  .print-status-today{color:#b45309; font-weight:700;}
+  .print-status-ok{color:#1a7a4c;}
+  .print-list{list-style:none; padding:0; margin:0; font-size:12.5px;}
+  .print-list li{padding:3px 0;}
+  .print-checked{color:#1a1a1a;}
+  .print-unchecked{color:#888;}
+  .print-dim{color:#888; font-size:11px;}
+  .print-empty{font-size:12px; color:#888; font-style:italic; margin:0;}
+  .print-cat{margin-bottom:10px;}
+  .print-cat-title{font-weight:700; font-size:12.5px; margin-bottom:3px;}
+  .print-footer{margin-top:24px; padding-top:8px; border-top:1px solid #ccc; font-size:10.5px; color:#888; text-align:center;}
+  .print-patient-block + .print-patient-block{margin-top:26px;}
+  .print-pagebreak{page-break-after:always;}
 </style>
 </head>
 <body>
@@ -148,7 +187,10 @@
   <!-- ===================== TRACKER VIEW ===================== -->
   <div class="view active" id="view-tracker">
     <div class="panel">
-      <div class="panel-title">Add Patient</div>
+      <div class="panel-title-row">
+        <div class="panel-title">Add Patient</div>
+        <button class="btn secondary small" id="export-all-btn">Export All (PDF)</button>
+      </div>
       <div class="add-patient-row">
         <input type="text" id="np-name" placeholder="Name / Initials" style="flex:2; min-width:140px;">
         <input type="text" id="np-room" placeholder="Room / Bed" style="flex:1; min-width:100px;">
@@ -176,6 +218,9 @@
 </main>
 
 <footer>G. Hopkins, RPh | RVH CCU | For Educational Use Only</footer>
+
+<!-- Populated on demand and shown only when printing -->
+<div id="print-area"></div>
 
 <script>
 (function(){
@@ -252,7 +297,7 @@
     ]},
     { title: "Nutrition", items: [
       { t: "Nutrition route confirmed (PO/enteral/parenteral)" },
-      { t: "Drug\u2013nutrient interactions checked (e.g., warfarin/vitamin K, phenytoin/tube feeds)" },
+      { t: "Drug–nutrient interactions checked (e.g., warfarin/vitamin K, phenytoin/tube feeds)" },
     ]},
   ];
 
@@ -291,6 +336,7 @@
 
   document.getElementById("add-patient-btn").addEventListener("click", addPatient);
   document.getElementById("np-name").addEventListener("keydown", function(e){ if(e.key==="Enter") addPatient(); });
+  document.getElementById("export-all-btn").addEventListener("click", exportAllPatients);
 
   function addPatient(){
     var nameEl = document.getElementById("np-name");
@@ -353,6 +399,8 @@
             '<input type="date" id="nt-date-' + p.id + '">' +
             '<select id="nt-pri-' + p.id + '"><option value="routine">Routine</option><option value="urgent">Urgent</option></select>' +
             '<button class="btn small" data-add-task="' + p.id + '">+ Add</button>' +
+            '<span class="spacer"></span>' +
+            '<button class="btn small secondary" data-export-pdf="' + p.id + '">Export PDF</button>' +
             '<button class="btn small danger" data-del-patient="' + p.id + '">Remove Patient</button>' +
           '</div>' +
         '</div>';
@@ -372,6 +420,9 @@
     });
     wrap.querySelectorAll("[data-del-patient]").forEach(function(btn){
       btn.addEventListener("click", function(e){ e.stopPropagation(); deletePatient(btn.dataset.delPatient); });
+    });
+    wrap.querySelectorAll("[data-export-pdf]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); exportPatientPDF(btn.dataset.exportPdf); });
     });
     wrap.querySelectorAll(".task-check").forEach(function(cb){
       cb.addEventListener("click", function(e){ e.stopPropagation(); toggleTask(cb.dataset.pid, cb.dataset.tid); });
@@ -397,7 +448,7 @@
         (t.priority === "urgent" ? ' <span class="task-priority urgent">Urgent</span>' : '') +
       '</div>' +
       '<div class="task-due ' + dueCls + '">' + formatDue(t.due) + '</div>' +
-      '<button class="del-task" data-pid="' + pid + '" data-tid="' + t.id + '" title="Delete">\u00d7</button>' +
+      '<button class="del-task" data-pid="' + pid + '" data-tid="' + t.id + '" title="Delete">×</button>' +
     '</div>';
   }
 
@@ -441,6 +492,122 @@
     });
   }
 
+  // ================= PDF EXPORT (print-optimized view) =================
+  var ORIGINAL_TITLE = document.title;
+
+  function genTimestamp(){
+    var now = new Date();
+    return now.toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" }) +
+      " at " + now.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
+  }
+
+  // Builds the printable HTML for a single patient (used by both single and full-roster export)
+  function buildPatientBlockHtml(p){
+    var openTasks = p.tasks.filter(function(t){ return !t.done; })
+      .sort(function(a,b){ return (a.due||"9999").localeCompare(b.due||"9999"); });
+    var doneTasks = p.tasks.filter(function(t){ return t.done; });
+
+    var html = '<div class="print-patient-block">';
+    html += '<div class="print-patient">';
+    html += '<div class="print-patient-name">' + escapeHtml(p.name) + '</div>';
+    if(p.room) html += '<div class="print-patient-room">Room ' + escapeHtml(p.room) + '</div>';
+    html += '</div>';
+
+    html += '<div class="print-section"><h2>Open Follow-Up Tasks (' + openTasks.length + ')</h2>';
+    if(openTasks.length){
+      html += '<table class="print-table"><thead><tr><th>Task</th><th>Due</th><th>Priority</th><th>Status</th></tr></thead><tbody>';
+      openTasks.forEach(function(t){
+        var status = dueStatus(t.due);
+        var statusLabel = status === "overdue" ? "Overdue" : (status === "today" ? "Due Today" : (status === "ok" ? "Upcoming" : "—"));
+        html += '<tr>' +
+          '<td>' + escapeHtml(t.text) + '</td>' +
+          '<td>' + formatDue(t.due) + '</td>' +
+          '<td>' + (t.priority === "urgent" ? "Urgent" : "Routine") + '</td>' +
+          '<td class="print-status-' + status + '">' + statusLabel + '</td>' +
+        '</tr>';
+      });
+      html += '</tbody></table>';
+    } else {
+      html += '<p class="print-empty">No open follow-up tasks.</p>';
+    }
+    html += '</div>';
+
+    html += '<div class="print-section"><h2>Completed Tasks (' + doneTasks.length + ')</h2>';
+    if(doneTasks.length){
+      html += '<ul class="print-list">';
+      doneTasks.forEach(function(t){
+        html += '<li>✓ ' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(was due ' + formatDue(t.due) + ')</span>' : '') + '</li>';
+      });
+      html += '</ul>';
+    } else {
+      html += '<p class="print-empty">No completed tasks.</p>';
+    }
+    html += '</div>';
+
+    var checks = p.evalChecked || {};
+    var hasChecks = Object.keys(checks).some(function(k){ return checks[k]; });
+    if(hasChecks){
+      html += '<div class="print-section"><h2>Initial Eval Checklist Progress</h2>';
+      EVAL_TEMPLATE.forEach(function(cat, ci){
+        var catId = "cat" + ci;
+        var checkedItems = [];
+        cat.items.forEach(function(item, ii){
+          var itemId = catId + "-" + ii;
+          if(checks[itemId]) checkedItems.push(item.t);
+        });
+        if(checkedItems.length === 0) return;
+        html += '<div class="print-cat"><div class="print-cat-title">' + escapeHtml(cat.title) + ' (' + checkedItems.length + '/' + cat.items.length + ')</div>';
+        html += '<ul class="print-list">';
+        checkedItems.forEach(function(t){ html += '<li class="print-checked">✓ ' + escapeHtml(t) + '</li>'; });
+        html += '</ul></div>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div>'; // .print-patient-block
+    return html;
+  }
+
+  function exportPatientPDF(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+
+    var html = '<div class="print-header">' +
+      '<h1>CCU Follow-Up Summary</h1>' +
+      '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
+    '</div>';
+    html += buildPatientBlockHtml(p);
+    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU | For Educational Use Only</div>';
+
+    document.getElementById("print-area").innerHTML = html;
+    document.title = "CCU Follow-Up - " + p.name;
+    window.print();
+  }
+
+  function exportAllPatients(){
+    if(state.patients.length === 0){
+      alert("No patients to export yet.");
+      return;
+    }
+    var html = '<div class="print-header">' +
+      '<h1>CCU Follow-Up Tracker — Full Roster</h1>' +
+      '<div class="print-meta">Generated ' + genTimestamp() + ' · ' + state.patients.length + ' patient(s)</div>' +
+    '</div>';
+    state.patients.forEach(function(p, idx){
+      html += buildPatientBlockHtml(p);
+      if(idx < state.patients.length - 1) html += '<div class="print-pagebreak"></div>';
+    });
+    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU | For Educational Use Only</div>';
+
+    document.getElementById("print-area").innerHTML = html;
+    document.title = "CCU Follow-Up - Full Roster";
+    window.print();
+  }
+
+  window.addEventListener("afterprint", function(){
+    document.title = ORIGINAL_TITLE;
+  });
+
   // ================= INITIAL EVAL GUIDE =================
   var openCats = {};
   var currentEvalPatientId = "";
@@ -448,7 +615,7 @@
   function renderEvalPatientSelect(){
     var sel = document.getElementById("eval-patient-select");
     var prev = sel.value;
-    sel.innerHTML = '<option value="">\u2014 Reference only (not saved) \u2014</option>' +
+    sel.innerHTML = '<option value="">— Reference only (not saved) —</option>' +
       state.patients.map(function(p){ return '<option value="' + p.id + '">' + escapeHtml(p.name) + (p.room ? " (Rm " + escapeHtml(p.room) + ")" : "") + '</option>'; }).join("");
     if(state.patients.some(function(p){ return p.id === prev; })) sel.value = prev;
     currentEvalPatientId = sel.value;
@@ -497,7 +664,7 @@
           '<div class="cat-title"><span class="cat-num">' + (ci+1) + '.</span> ' + escapeHtml(cat.title) + '</div>' +
           '<div style="display:flex; align-items:center; gap:10px;">' +
             '<span class="cat-progress">' + checkedCount + '/' + cat.items.length + '</span>' +
-            '<span class="cat-chevron' + (openCats[catId] ? " open" : "") + '">\u203a</span>' +
+            '<span class="cat-chevron' + (openCats[catId] ? " open" : "") + '">›</span>' +
           '</div>' +
         '</div>' +
         '<div class="cat-items' + (openCats[catId] ? " open" : "") + '" id="items-' + catId + '">' + itemsHtml + '</div>';
