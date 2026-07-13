@@ -242,6 +242,7 @@
           unit: "floor", tasks: [],
           focus: rp.focus || {}, renalValue: rp.renalValue || "", renalTrend: rp.renalTrend || "", crcl: rp.crcl || "",
           tdmAgent: rp.tdmAgent || "", tdmNextTrough: rp.tdmNextTrough || "", tdmTarget: rp.tdmTarget || "",
+          a1cLevel: rp.a1cLevel || "", a1cChanges: rp.a1cChanges || "",
           checksByDate: rp.checksByDate || {}
         });
       });
@@ -260,6 +261,8 @@
       if(p.tdmAgent === undefined) p.tdmAgent = "";
       if(p.tdmNextTrough === undefined) p.tdmNextTrough = "";
       if(p.tdmTarget === undefined) p.tdmTarget = "";
+      if(p.a1cLevel === undefined) p.a1cLevel = "";
+      if(p.a1cChanges === undefined) p.a1cChanges = "";
       if(!p.checksByDate) p.checksByDate = {};
       if(p.dx === undefined) p.dx = "";
       if(p.ef === undefined) p.ef = "";
@@ -290,7 +293,6 @@
     ]},
     insulin: { label: "Insulin / Glycemia", items: [
       { id: "ins-poc", t: "POC glucose trend reviewed" },
-      { id: "ins-a1c", t: "A1C on file" },
       { id: "ins-regimen", t: "Sliding scale vs basal-bolus appropriate" },
     ]},
     hfref: { label: "HFrEF (EF ≤40%)", items: [
@@ -378,7 +380,7 @@
     var p = {
       id: uid(), name: name, room: roomEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
       unit: unitEl.value, tasks: [], focus: {}, renalValue: "", renalTrend: "", crcl: "",
-      tdmAgent: "", tdmNextTrough: "", tdmTarget: "", checksByDate: {}
+      tdmAgent: "", tdmNextTrough: "", tdmTarget: "", a1cLevel: "", a1cChanges: "", checksByDate: {}
     };
     state.patients.unshift(p);
     nameEl.value = ""; roomEl.value = ""; dxEl.value = ""; efEl.value = "";
@@ -601,8 +603,16 @@
         return;
       }
       var area = ROUNDS_FOCUS_AREAS[key];
+      var extraHtml = "";
+      if(key === "insulin"){
+        extraHtml = '<div class="rounds-head-row" style="margin-top:8px;">' +
+          '<div class="rounds-field"><label>A1C Level</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:80px;"></div>' +
+          '<div class="rounds-field"><label>Suggested Changes</label><input type="text" value="' + escapeHtml(p.a1cChanges) + '" data-field="a1cChanges" data-pid="' + p.id + '" style="width:240px;"></div>' +
+        '</div>';
+      }
       focusHtml += '<div class="rounds-section"><div class="rounds-section-title">' + escapeHtml(area.label) + '</div>' +
         area.items.map(function(item){ return roundsItemHtml(p.id, item, today, prev); }).join("") +
+        extraHtml +
       '</div>';
     });
 
@@ -782,6 +792,12 @@
       if(p.tdmNextTrough) tdmBits.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
       html += '<p class="print-dim" style="margin:2px 0 0 0;">TDM/Levels — ' + (tdmBits.length ? tdmBits.join(" · ") : "not yet specified") + '</p>';
     }
+    if(p.focus.insulin && (p.a1cLevel || p.a1cChanges)){
+      var a1cBits = [];
+      if(p.a1cLevel) a1cBits.push("A1C: " + escapeHtml(p.a1cLevel));
+      if(p.a1cChanges) a1cBits.push("Suggested changes: " + escapeHtml(p.a1cChanges));
+      html += '<p class="print-dim" style="margin:2px 0 0 0;">' + a1cBits.join(" · ") + '</p>';
+    }
     html += '</div>';
 
     html += '<div class="print-section"><h2>Open Follow-Up Tasks (' + openTasks.length + ')</h2>';
@@ -877,6 +893,12 @@
       if(p.tdmTarget) tdmBits.push("target " + escapeHtml(p.tdmTarget));
       if(p.tdmNextTrough) tdmBits.push("next trough " + formatDateTime(p.tdmNextTrough));
       focusParts.push("<div><strong>TDM / Levels:</strong> " + (tdmBits.length ? tdmBits.join(" · ") : '<span class="print-dim">not yet specified</span>') + "</div>");
+    }
+    if(p.focus.insulin && (p.a1cLevel || p.a1cChanges)){
+      var a1cParts = [];
+      if(p.a1cLevel) a1cParts.push("A1C " + escapeHtml(p.a1cLevel));
+      if(p.a1cChanges) a1cParts.push(escapeHtml(p.a1cChanges));
+      focusParts.push("<div><strong>A1C:</strong> " + a1cParts.join(" · ") + "</div>");
     }
     var focusCell = focusParts.join("");
     if(!focusCell) focusCell = '<span class="print-dim">—</span>';
