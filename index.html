@@ -38,15 +38,7 @@
   .brand h1{font-size:16px; margin:0; font-weight:650; letter-spacing:0.2px;}
   .brand .sub{font-size:11px; color:var(--text-dim); letter-spacing:0.3px; text-transform:uppercase;}
 
-  nav.tabs{display:flex; gap:6px; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:4px;}
-  nav.tabs button{background:transparent; border:none; color:var(--text-dim); font-size:13px; font-weight:600;
-    padding:8px 14px; border-radius:8px; cursor:pointer; transition:all .15s;}
-  nav.tabs button.active{background:var(--teal-bg); color:var(--teal);}
-  nav.tabs button:hover:not(.active){color:var(--text);}
-
   main{max-width:1100px; margin:0 auto; padding:20px;}
-  .view{display:none;}
-  .view.active{display:block;}
 
   .panel{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px;}
   .panel-title{font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--teal); margin:0 0 12px 0;}
@@ -130,29 +122,10 @@
   .prev-hint:hover{opacity:0.8;}
   .rounds-footer-row{display:flex; justify-content:flex-end; gap:6px; margin-top:12px; flex-wrap:wrap;}
 
-  /* ---------- Initial Eval Guide ---------- */
-  .eval-toolbar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px;}
-  .eval-toolbar .hint{font-size:12px; color:var(--text-dim);}
-  .category{border:1px solid var(--border-soft); border-radius:12px; margin-bottom:10px; overflow:hidden; background:var(--panel-2);}
-  .cat-head{display:flex; justify-content:space-between; align-items:center; padding:12px 16px; cursor:pointer;}
-  .cat-head:hover{background:rgba(255,255,255,0.02);}
-  .cat-title{font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px;}
-  .cat-num{color:var(--teal); font-variant-numeric:tabular-nums;}
-  .cat-progress{font-size:11px; color:var(--text-dim);}
-  .cat-chevron{color:var(--text-faint); transition:transform .15s;}
-  .cat-chevron.open{transform:rotate(90deg);}
-  .cat-items{display:none; padding:0 16px 14px 16px;}
-  .cat-items.open{display:block;}
-  .eval-item{display:flex; align-items:flex-start; gap:10px; padding:7px 0;}
-  .eval-item input{width:17px; height:17px; margin-top:2px; accent-color:var(--teal); cursor:pointer; flex-shrink:0;}
-  .eval-item label{font-size:13.5px; line-height:1.4; cursor:pointer;}
-  .eval-item .note{display:block; font-size:11.5px; color:var(--text-dim); margin-top:2px;}
-
   footer{text-align:center; font-size:11px; color:var(--text-faint); padding:30px 20px 10px; letter-spacing:0.2px;}
 
   @media (max-width:600px){
     .brand h1{font-size:14px;}
-    nav.tabs button{padding:7px 10px; font-size:12px;}
     .task-due{white-space:normal;}
   }
 
@@ -207,17 +180,13 @@
         <div class="sub">Daily Rounds &amp; Follow-Up</div>
       </div>
     </div>
-    <nav class="tabs">
-      <button class="tab-btn active" data-view="rounds">Daily Rounds</button>
-      <button class="tab-btn" data-view="evalguide">Initial Eval Guide</button>
-    </nav>
   </div>
 </header>
 
 <main>
 
   <!-- ===================== DAILY ROUNDS VIEW ===================== -->
-  <div class="view active" id="view-rounds">
+  <div id="view-rounds">
     <div class="panel">
       <div class="panel-title-row">
         <div class="panel-title">Add / Update Patient</div>
@@ -241,20 +210,6 @@
     </div>
 
     <div id="rounds-list"></div>
-  </div>
-
-  <!-- ===================== INITIAL EVAL GUIDE VIEW ===================== -->
-  <div class="view" id="view-evalguide">
-    <div class="panel">
-      <div class="panel-title">Track Progress For</div>
-      <div class="eval-toolbar">
-        <select id="eval-patient-select">
-          <option value="">— Reference only (not saved) —</option>
-        </select>
-        <span class="hint">Selecting a patient saves your checklist progress for them. Otherwise this is a blank reference each visit.</span>
-      </div>
-    </div>
-    <div id="eval-categories"></div>
   </div>
 
 </main>
@@ -284,7 +239,7 @@
       s.roundsPatients.forEach(function(rp){
         s.patients.push({
           id: rp.id, name: rp.name, room: rp.room || "", dx: rp.dx || "", ef: rp.ef || "",
-          unit: "floor", tasks: [], evalChecked: {},
+          unit: "floor", tasks: [],
           focus: rp.focus || {}, renalValue: rp.renalValue || "", renalTrend: rp.renalTrend || "", crcl: rp.crcl || "",
           checksByDate: rp.checksByDate || {}
         });
@@ -297,7 +252,6 @@
     s.patients.forEach(function(p){
       if(p.unit === undefined) p.unit = "ccu";
       if(!p.tasks) p.tasks = [];
-      if(!p.evalChecked) p.evalChecked = {};
       if(!p.focus) p.focus = {};
       if(p.renalValue === undefined) p.renalValue = "";
       if(p.renalTrend === undefined) p.renalTrend = "";
@@ -315,55 +269,6 @@
   saveState();
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-
-  // ---------------- Initial Eval Checklist Template ----------------
-  var EVAL_TEMPLATE = [
-    { title: "Medication Reconciliation", items: [
-      { t: "Med rec done" },
-    ]},
-    { title: "Renal & Hepatic Function", items: [
-      { t: "Baseline creatinine / eGFR reviewed", n: "Trend, not just most recent value" },
-      { t: "LFTs reviewed if hepatically-cleared agents in use" },
-      { t: "Renal/hepatic dose adjustments confirmed for all active orders" },
-    ]},
-    { title: "Hemodynamics & Rhythm", items: [
-      { t: "Current rhythm and telemetry indication reviewed" },
-      { t: "Pressor / inotrope requirement and trend assessed" },
-      { t: "Baseline QTc reviewed if any QT-prolonging agents are active" },
-    ]},
-    { title: "GDMT Status (if Heart Failure)", items: [
-      { t: "ACEi/ARB/ARNI — continued, held, or contraindicated (document why)" },
-      { t: "Beta-blocker — continued, held, or contraindicated" },
-      { t: "MRA — continued, held, or contraindicated" },
-      { t: "SGLT2i — continued, held, or contraindicated" },
-    ]},
-    { title: "Anticoagulation", items: [
-      { t: "Indication for anticoagulation confirmed" },
-      { t: "Agent and renal-adjusted dose appropriate" },
-      { t: "Bridging needs assessed if applicable" },
-      { t: "Bleeding risk assessed (e.g., HAS-BLED or equivalent)" },
-    ]},
-    { title: "Sedation & Analgesia (if intubated)", items: [
-      { t: "RASS target defined and current RASS reviewed" },
-      { t: "Agents and doses appropriate for hemodynamic status" },
-      { t: "Daily SAT/SBT candidacy assessed" },
-    ]},
-    { title: "Infection & Antimicrobials", items: [
-      { t: "Active infection / pending cultures reviewed" },
-      { t: "Antibiotic renal dosing confirmed" },
-      { t: "Planned duration / stop date documented" },
-    ]},
-    { title: "Prophylaxis", items: [
-      { t: "VTE prophylaxis done" },
-      { t: "VTE prophylaxis dose appropriate" },
-      { t: "Stress ulcer prophylaxis indicated and appropriate" },
-    ]},
-    { title: "Electrolytes & TDM", items: [
-      { t: "K+/Mg2+ targets reviewed, esp. if on antiarrhythmics" },
-      { t: "Repletion protocol in place if needed" },
-      { t: "Any active TDM agents identified (heparin, vancomycin, amiodarone, digoxin, etc.)" },
-    ]},
-  ];
 
   // ---------------- Daily Rounds Checklist Template ----------------
   var ROUNDS_CORE_ITEMS = [
@@ -383,6 +288,12 @@
       { id: "ins-poc", t: "POC glucose trend reviewed" },
       { id: "ins-a1c", t: "A1C on file" },
       { id: "ins-regimen", t: "Sliding scale vs basal-bolus appropriate" },
+    ]},
+    tdm: { label: "TDM / Levels", items: [
+      { id: "tdm-agent", t: "TDM agent(s) identified", n: "Heparin, vancomycin, amiodarone, digoxin, etc." },
+      { id: "tdm-level", t: "Level/trough reviewed and in target range" },
+      { id: "tdm-dose", t: "Dose adjusted per level and renal function" },
+      { id: "tdm-next", t: "Next level due / scheduled" },
     ]},
     hfref: { label: "HFrEF (EF ≤40%)", items: [
       { id: "hfref-arni", t: "ARNI / ACEi / ARB", n: "Continued, held, or contraindicated — document why" },
@@ -409,18 +320,6 @@
 
   var UNIT_LABELS = { ccu: "CCU", floor: "Cardiac Floor" };
   var UNIT_ORDER = ["ccu", "floor"];
-
-  // ================= TAB SWITCHING =================
-  var tabBtns = document.querySelectorAll(".tab-btn");
-  tabBtns.forEach(function(btn){
-    btn.addEventListener("click", function(){
-      tabBtns.forEach(function(b){ b.classList.remove("active"); });
-      btn.classList.add("active");
-      document.querySelectorAll(".view").forEach(function(v){ v.classList.remove("active"); });
-      document.getElementById("view-" + btn.dataset.view).classList.add("active");
-      if(btn.dataset.view === "evalguide") renderEvalPatientSelect();
-    });
-  });
 
   // ================= DATE HELPERS =================
   function todayStr(){
@@ -464,13 +363,12 @@
     if(!name) return;
     var p = {
       id: uid(), name: name, room: roomEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
-      unit: unitEl.value, tasks: [], evalChecked: {}, focus: {}, renalValue: "", renalTrend: "", crcl: "", checksByDate: {}
+      unit: unitEl.value, tasks: [], focus: {}, renalValue: "", renalTrend: "", crcl: "", checksByDate: {}
     };
     state.patients.unshift(p);
     nameEl.value = ""; roomEl.value = ""; dxEl.value = ""; efEl.value = "";
     saveState();
     renderPatients();
-    renderEvalPatientSelect();
   }
 
   function deletePatient(id){
@@ -478,7 +376,6 @@
     state.patients = state.patients.filter(function(p){ return p.id !== id; });
     saveState();
     renderPatients();
-    renderEvalPatientSelect();
   }
 
   function updatePatientField(pid, field, value){
@@ -605,6 +502,37 @@
     renderPatients();
   }
 
+  // Creates a follow-up task for each currently-unchecked core/active-focus-area item,
+  // skipping items that already have an open (not done) auto-generated task.
+  function addFollowUpsForUnchecked(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var today = getTodayChecks(p);
+    var candidates = ROUNDS_CORE_ITEMS.map(function(item){ return { item: item, area: "Core Review" }; });
+    Object.keys(ROUNDS_FOCUS_AREAS).forEach(function(key){
+      if(p.focus[key]){
+        var area = ROUNDS_FOCUS_AREAS[key];
+        area.items.forEach(function(item){ candidates.push({ item: item, area: area.label }); });
+      }
+    });
+
+    var openSourceIds = p.tasks.filter(function(t){ return !t.done; }).map(function(t){ return t.sourceItem; });
+    var added = 0;
+    candidates.forEach(function(c){
+      if(today[c.item.id]) return;
+      if(openSourceIds.indexOf(c.item.id) !== -1) return;
+      p.tasks.push({ id: uid(), text: c.area + ": " + c.item.t, due: "", priority: "routine", done: false, sourceItem: c.item.id });
+      added++;
+    });
+
+    if(added === 0){
+      alert("Nothing to add — all reviewed items are checked, or already have an open follow-up.");
+      return;
+    }
+    saveState();
+    renderPatients();
+  }
+
   // ---- Main render ----
   function renderPatients(){
     var wrap = document.getElementById("rounds-list");
@@ -700,6 +628,7 @@
         '</div>' +
         '<div class="rounds-footer-row">' +
           '<button class="btn small secondary" data-carry-forward="' + p.id + '">Carry Forward Yesterday&rsquo;s ✓</button>' +
+          '<button class="btn small secondary" data-add-followups="' + p.id + '">Add Follow-Ups for Unchecked</button>' +
           '<button class="btn small secondary" data-export-pdf="' + p.id + '">Export PDF</button>' +
           '<button class="btn small danger" data-del-patient="' + p.id + '">Remove (Discharged)</button>' +
         '</div>' +
@@ -754,6 +683,13 @@
     });
     wrap.querySelectorAll("[data-add-task]").forEach(function(btn){
       btn.addEventListener("click", function(e){ e.stopPropagation(); addTask(btn.dataset.addTask); });
+    });
+    wrap.querySelectorAll("[data-add-followups]").forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        openPatients[btn.dataset.addFollowups] = true;
+        addFollowUpsForUnchecked(btn.dataset.addFollowups);
+      });
     });
     wrap.querySelectorAll(".task-check").forEach(function(cb){
       cb.addEventListener("click", function(e){ e.stopPropagation(); toggleTask(cb.dataset.pid, cb.dataset.tid); });
@@ -846,26 +782,6 @@
       html += '<p class="print-empty">No completed tasks.</p>';
     }
     html += '</div>';
-
-    var checks = p.evalChecked || {};
-    var hasChecks = Object.keys(checks).some(function(k){ return checks[k]; });
-    if(hasChecks){
-      html += '<div class="print-section"><h2>Initial Eval Checklist Progress</h2>';
-      EVAL_TEMPLATE.forEach(function(cat, ci){
-        var catId = "cat" + ci;
-        var checkedItems = [];
-        cat.items.forEach(function(item, ii){
-          var itemId = catId + "-" + ii;
-          if(checks[itemId]) checkedItems.push(item.t);
-        });
-        if(checkedItems.length === 0) return;
-        html += '<div class="print-cat"><div class="print-cat-title">' + escapeHtml(cat.title) + ' (' + checkedItems.length + '/' + cat.items.length + ')</div>';
-        html += '<ul class="print-list">';
-        checkedItems.forEach(function(t){ html += '<li class="print-checked">✓ ' + escapeHtml(t) + '</li>'; });
-        html += '</ul></div>';
-      });
-      html += '</div>';
-    }
 
     html += '</div>'; // .print-patient-block
     return html;
@@ -975,90 +891,8 @@
     document.title = ORIGINAL_TITLE;
   });
 
-  // ================= INITIAL EVAL GUIDE =================
-  var openCats = {};
-  var currentEvalPatientId = "";
-
-  function renderEvalPatientSelect(){
-    var sel = document.getElementById("eval-patient-select");
-    var prev = sel.value;
-    sel.innerHTML = '<option value="">— Reference only (not saved) —</option>' +
-      state.patients.map(function(p){ return '<option value="' + p.id + '">' + escapeHtml(p.name) + (p.room ? " (Rm " + escapeHtml(p.room) + ")" : "") + '</option>'; }).join("");
-    if(state.patients.some(function(p){ return p.id === prev; })) sel.value = prev;
-    currentEvalPatientId = sel.value;
-  }
-  document.getElementById("eval-patient-select").addEventListener("change", function(e){
-    currentEvalPatientId = e.target.value;
-    renderEvalCategories();
-  });
-
-  function getEvalChecks(){
-    if(!currentEvalPatientId) return {};
-    var p = state.patients.find(function(p){ return p.id === currentEvalPatientId; });
-    return p ? p.evalChecked : {};
-  }
-  function setEvalCheck(itemId, val){
-    if(!currentEvalPatientId) return;
-    var p = state.patients.find(function(p){ return p.id === currentEvalPatientId; });
-    if(!p) return;
-    p.evalChecked[itemId] = val;
-    saveState();
-  }
-
-  function renderEvalCategories(){
-    var wrap = document.getElementById("eval-categories");
-    wrap.innerHTML = "";
-    var checks = getEvalChecks();
-
-    EVAL_TEMPLATE.forEach(function(cat, ci){
-      var catId = "cat" + ci;
-      var itemsHtml = "";
-      var checkedCount = 0;
-      cat.items.forEach(function(item, ii){
-        var itemId = catId + "-" + ii;
-        var checked = !!checks[itemId];
-        if(checked) checkedCount++;
-        itemsHtml += '<div class="eval-item">' +
-          '<input type="checkbox" id="chk-' + itemId + '" data-item="' + itemId + '" ' + (checked ? "checked" : "") + (currentEvalPatientId ? "" : " ") + '>' +
-          '<label for="chk-' + itemId + '">' + escapeHtml(item.t) + (item.n ? '<span class="note">' + escapeHtml(item.n) + '</span>' : '') + '</label>' +
-        '</div>';
-      });
-
-      var catDiv = document.createElement("div");
-      catDiv.className = "category";
-      catDiv.innerHTML =
-        '<div class="cat-head" data-cat="' + catId + '">' +
-          '<div class="cat-title"><span class="cat-num">' + (ci+1) + '.</span> ' + escapeHtml(cat.title) + '</div>' +
-          '<div style="display:flex; align-items:center; gap:10px;">' +
-            '<span class="cat-progress">' + checkedCount + '/' + cat.items.length + '</span>' +
-            '<span class="cat-chevron' + (openCats[catId] ? " open" : "") + '">›</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="cat-items' + (openCats[catId] ? " open" : "") + '" id="items-' + catId + '">' + itemsHtml + '</div>';
-      wrap.appendChild(catDiv);
-    });
-
-    wrap.querySelectorAll(".cat-head").forEach(function(head){
-      head.addEventListener("click", function(){
-        var catId = head.dataset.cat;
-        openCats[catId] = !openCats[catId];
-        document.getElementById("items-" + catId).classList.toggle("open", openCats[catId]);
-        head.querySelector(".cat-chevron").classList.toggle("open", openCats[catId]);
-      });
-    });
-    wrap.querySelectorAll('input[type=checkbox][data-item]').forEach(function(cb){
-      cb.addEventListener("click", function(e){ e.stopPropagation(); });
-      cb.addEventListener("change", function(){
-        setEvalCheck(cb.dataset.item, cb.checked);
-        renderEvalCategories();
-      });
-    });
-  }
-
   // ================= INIT =================
   renderPatients();
-  renderEvalPatientSelect();
-  renderEvalCategories();
 
 })();
 </script>
