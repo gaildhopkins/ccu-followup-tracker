@@ -772,9 +772,6 @@
     html += '</div>';
 
     var reviewItems = ROUNDS_CORE_ITEMS.slice();
-    Object.keys(ROUNDS_FOCUS_AREAS).forEach(function(key){
-      if(p.focus[key]) reviewItems = reviewItems.concat(ROUNDS_FOCUS_AREAS[key].items);
-    });
     html += '<div class="print-section"><h2>Today’s Review Checklist</h2><ul class="print-list">';
     reviewItems.forEach(function(item){
       var checked = !!today[item.id];
@@ -882,11 +879,7 @@
     if(p.renalValue) renalBits.push("eGFR " + escapeHtml(p.renalValue) + (p.renalTrend ? " " + p.renalTrend : ""));
     if(p.crcl) renalBits.push("CrCl " + escapeHtml(p.crcl));
     var renalCell = renalBits.length ? renalBits.join("<br>") : "—";
-    var focusParts = Object.keys(ROUNDS_FOCUS_AREAS).filter(function(key){ return p.focus[key]; }).map(function(key){
-      var area = ROUNDS_FOCUS_AREAS[key];
-      var itemsStr = area.items.map(function(item){ return (today[item.id] ? "✓" : "☐") + escapeHtml(item.t); }).join("  ");
-      return "<div><strong>" + escapeHtml(area.label) + ":</strong> " + itemsStr + "</div>";
-    });
+    var focusParts = [];
     if(p.focus.tdm){
       var tdmBits = [];
       if(p.tdmAgent) tdmBits.push(escapeHtml(p.tdmAgent));
@@ -936,7 +929,7 @@
       if(!list.length) return;
       html += '<div class="print-section"><h2>' + UNIT_LABELS[unitKey] + ' (' + list.length + ')</h2>';
       html += '<table class="print-table print-rounds-table"><thead><tr>' +
-        '<th>Room</th><th>Patient</th><th>Dx</th><th>Med Rec</th><th>VTE</th><th>Renal</th><th>GDMT / Focus Areas</th><th>To Do</th>' +
+        '<th>Room</th><th>Patient</th><th>Dx</th><th>Med Rec</th><th>VTE</th><th>Renal</th><th>TDM / A1C</th><th>To Do</th>' +
       '</tr></thead><tbody>';
       list.forEach(function(p){ html += buildRoundsPrintRow(p); });
       html += '</tbody></table></div>';
