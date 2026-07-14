@@ -241,7 +241,7 @@
         s.patients.push({
           id: rp.id, name: rp.name, room: rp.room || "", dx: rp.dx || "", ef: rp.ef || "",
           unit: "floor", tasks: [],
-          focus: rp.focus || {}, renalValue: rp.renalValue || "", renalTrend: rp.renalTrend || "", crcl: rp.crcl || "",
+          focus: rp.focus || {}, crcl: rp.crcl || "",
           tdmAgent: rp.tdmAgent || "", tdmNextTrough: rp.tdmNextTrough || "", tdmTarget: rp.tdmTarget || "", tdmFrequency: rp.tdmFrequency || "",
           itemNotes: rp.itemNotes || {},
           a1cLevel: rp.a1cLevel || "", a1cChanges: rp.a1cChanges || "",
@@ -257,8 +257,6 @@
       if(p.unit === undefined) p.unit = "ccu";
       if(!p.tasks) p.tasks = [];
       if(!p.focus) p.focus = {};
-      if(p.renalValue === undefined) p.renalValue = "";
-      if(p.renalTrend === undefined) p.renalTrend = "";
       if(p.crcl === undefined) p.crcl = "";
       if(p.tdmAgent === undefined) p.tdmAgent = "";
       if(p.tdmNextTrough === undefined) p.tdmNextTrough = "";
@@ -285,7 +283,7 @@
   var ROUNDS_CORE_ITEMS = [
     { id: "medrec", t: "Med rec reviewed", n: "Home med list reconciled vs current orders" },
     { id: "vte", t: "VTE prophylaxis appropriate", n: "Check bleeding/renal contraindication; document if held" },
-    { id: "renaldose", t: "Renal-dosed meds reviewed", n: "Adjust for current eGFR/Clcr trend" },
+    { id: "renaldose", t: "Renal-dosed meds reviewed", n: "Adjust for current CrCl" },
     { id: "ivpo", t: "IV→PO conversion reviewed", n: "Diuretics, PPIs, antiarrhythmics, anticoagulants, antibiotics" },
   ];
 
@@ -383,7 +381,7 @@
     if(!name) return;
     var p = {
       id: uid(), name: name, room: roomEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
-      unit: unitEl.value, tasks: [], focus: {}, renalValue: "", renalTrend: "", crcl: "",
+      unit: unitEl.value, tasks: [], focus: {}, crcl: "",
       tdmAgent: "", tdmNextTrough: "", tdmTarget: "", tdmFrequency: "", a1cLevel: "", a1cChanges: "",
       itemNotes: {}, checksByDate: {}
     };
@@ -624,7 +622,6 @@
       var extraHtml = "";
       if(key === "insulin"){
         extraHtml = '<div class="rounds-head-row" style="margin-top:8px;">' +
-          '<div class="rounds-field"><label>A1C Level</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:80px;"></div>' +
           '<div class="rounds-field"><label>Suggested Changes</label><input type="text" value="' + escapeHtml(p.a1cChanges) + '" data-field="a1cChanges" data-pid="' + p.id + '" style="width:240px;"></div>' +
         '</div>';
       }
@@ -661,11 +658,8 @@
           '<div class="rounds-field"><label>Unit</label><select data-field="unit" data-pid="' + p.id + '">' +
             UNIT_ORDER.map(function(u){ return '<option value="' + u + '"' + (p.unit === u ? " selected" : "") + '>' + UNIT_LABELS[u] + '</option>'; }).join("") +
           '</select></div>' +
-          '<div class="rounds-field"><label>eGFR</label><input type="text" value="' + escapeHtml(p.renalValue) + '" data-field="renalValue" data-pid="' + p.id + '" style="width:65px;"></div>' +
-          '<div class="rounds-field"><label>Trend</label><select data-field="renalTrend" data-pid="' + p.id + '">' +
-            ["", "↑", "↓", "→"].map(function(t){ return '<option value="' + t + '"' + (p.renalTrend === t ? " selected" : "") + '>' + (t || "—") + '</option>'; }).join("") +
-          '</select></div>' +
           '<div class="rounds-field"><label>CrCl</label><input type="text" value="' + escapeHtml(p.crcl) + '" data-field="crcl" data-pid="' + p.id + '" style="width:65px;"></div>' +
+          '<div class="rounds-field"><label>A1C</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:65px;"></div>' +
         '</div>' +
         '<div class="focus-chips">' + chipsHtml + '</div>' +
         '<div class="rounds-section"><div class="rounds-section-title">Core Review</div>' + coreHtml + '</div>' +
@@ -810,10 +804,10 @@
         (note ? ' <span class="print-dim">— ' + escapeHtml(note) + '</span>' : '') + '</li>';
     });
     html += '</ul>';
-    var renalBits = [];
-    if(p.renalValue) renalBits.push("eGFR " + escapeHtml(p.renalValue) + (p.renalTrend ? " " + p.renalTrend : ""));
-    if(p.crcl) renalBits.push("CrCl " + escapeHtml(p.crcl));
-    if(renalBits.length) html += '<p class="print-dim" style="margin:6px 0 0 0;">Renal: ' + renalBits.join(" · ") + '</p>';
+    var vitalsBits = [];
+    if(p.crcl) vitalsBits.push("CrCl " + escapeHtml(p.crcl));
+    if(p.a1cLevel) vitalsBits.push("A1C " + escapeHtml(p.a1cLevel));
+    if(vitalsBits.length) html += '<p class="print-dim" style="margin:6px 0 0 0;">' + vitalsBits.join(" · ") + '</p>';
     if(p.focus.tdm){
       var tdmBits = [];
       if(p.tdmAgent) tdmBits.push("Agent: " + escapeHtml(p.tdmAgent));
@@ -821,11 +815,8 @@
       if(p.tdmNextTrough) tdmBits.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
       html += '<p class="print-dim" style="margin:2px 0 0 0;">TDM/Levels — ' + (tdmBits.length ? tdmBits.join(" · ") : "not yet specified") + '</p>';
     }
-    if(p.focus.insulin && (p.a1cLevel || p.a1cChanges)){
-      var a1cBits = [];
-      if(p.a1cLevel) a1cBits.push("A1C: " + escapeHtml(p.a1cLevel));
-      if(p.a1cChanges) a1cBits.push("Suggested changes: " + escapeHtml(p.a1cChanges));
-      html += '<p class="print-dim" style="margin:2px 0 0 0;">' + a1cBits.join(" · ") + '</p>';
+    if(p.focus.insulin && p.a1cChanges){
+      html += '<p class="print-dim" style="margin:2px 0 0 0;">Suggested changes: ' + escapeHtml(p.a1cChanges) + '</p>';
     }
     html += '</div>';
 
@@ -948,23 +939,20 @@
     var today = getTodayChecks(p);
     var medRec = !!today.medrec;
     var vte = !!today.vte;
-    var renalBits = [];
-    if(p.renalValue) renalBits.push("eGFR " + escapeHtml(p.renalValue) + (p.renalTrend ? " " + p.renalTrend : ""));
-    if(p.crcl) renalBits.push("CrCl " + escapeHtml(p.crcl));
-    var renalCell = renalBits.length ? renalBits.join("<br>") : "—";
+    var vitalsBits = [];
+    if(p.crcl) vitalsBits.push("CrCl " + escapeHtml(p.crcl));
+    if(p.a1cLevel) vitalsBits.push("A1C " + escapeHtml(p.a1cLevel));
+    var vitalsCell = vitalsBits.length ? vitalsBits.join("<br>") : "—";
     var focusParts = [];
     if(p.focus.tdm){
       var tdmBits = [];
       if(p.tdmAgent) tdmBits.push(escapeHtml(p.tdmAgent));
       if(p.tdmTarget) tdmBits.push("target " + escapeHtml(p.tdmTarget));
       if(p.tdmNextTrough) tdmBits.push("next trough " + formatDateTime(p.tdmNextTrough));
-      focusParts.push("<div><strong>TDM / Levels:</strong> " + (tdmBits.length ? tdmBits.join(" · ") : '<span class="print-dim">not yet specified</span>') + "</div>");
+      focusParts.push("<div><strong>TDM:</strong> " + (tdmBits.length ? tdmBits.join(" · ") : '<span class="print-dim">not yet specified</span>') + "</div>");
     }
-    if(p.focus.insulin && (p.a1cLevel || p.a1cChanges)){
-      var a1cParts = [];
-      if(p.a1cLevel) a1cParts.push("A1C " + escapeHtml(p.a1cLevel));
-      if(p.a1cChanges) a1cParts.push(escapeHtml(p.a1cChanges));
-      focusParts.push("<div><strong>A1C:</strong> " + a1cParts.join(" · ") + "</div>");
+    if(p.focus.insulin && p.a1cChanges){
+      focusParts.push("<div><strong>A1C plan:</strong> " + escapeHtml(p.a1cChanges) + "</div>");
     }
     var focusCell = focusParts.join("");
     if(!focusCell) focusCell = '<span class="print-dim">—</span>';
@@ -979,7 +967,7 @@
       '<td>' + escapeHtml(p.dx || "—") + (p.ef ? ' <span class="print-dim">(EF ' + escapeHtml(p.ef) + '%)</span>' : '') + '</td>' +
       '<td class="' + (medRec ? "print-status-ok" : "") + '">' + (medRec ? "✓" : "☐") + '</td>' +
       '<td class="' + (vte ? "print-status-ok" : "") + '">' + (vte ? "✓" : "☐") + '</td>' +
-      '<td>' + renalCell + '</td>' +
+      '<td>' + vitalsCell + '</td>' +
       '<td class="print-focus-cell">' + focusCell + '</td>' +
       '<td>' + todoCell + '</td>' +
     '</tr>';
@@ -1002,7 +990,7 @@
       if(!list.length) return;
       html += '<div class="print-section"><h2>' + UNIT_LABELS[unitKey] + ' (' + list.length + ')</h2>';
       html += '<table class="print-table print-rounds-table"><thead><tr>' +
-        '<th>Room</th><th>Patient</th><th>Dx</th><th>Med Rec</th><th>VTE</th><th>Renal</th><th>TDM / A1C</th><th>To Do</th>' +
+        '<th>Room</th><th>Patient</th><th>Dx</th><th>Med Rec</th><th>VTE</th><th>CrCl / A1C</th><th>Monitoring</th><th>To Do</th>' +
       '</tr></thead><tbody>';
       list.forEach(function(p){ html += buildRoundsPrintRow(p); });
       html += '</tbody></table></div>';
