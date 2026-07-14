@@ -113,13 +113,14 @@
   .focus-chip.active{background:var(--teal-bg); color:var(--teal); border-color:var(--teal-dim);}
   .rounds-section{margin-top:12px; border-top:1px solid var(--border-soft); padding-top:10px;}
   .rounds-section-title{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim); margin-bottom:4px;}
-  .rounds-item{display:flex; align-items:flex-start; gap:9px; padding:5px 0;}
+  .rounds-item{display:flex; align-items:flex-start; gap:9px; padding:5px 0; flex-wrap:wrap;}
   .rounds-item input[type=checkbox]{width:16px; height:16px; margin-top:2px; accent-color:var(--teal); cursor:pointer; flex-shrink:0;}
-  .rounds-item label{font-size:13px; line-height:1.4; cursor:pointer; flex:1;}
+  .rounds-item label{font-size:13px; line-height:1.4; cursor:pointer; flex:1; min-width:140px;}
   .rounds-item .note{display:block; font-size:11px; color:var(--text-dim); margin-top:1px;}
   .prev-hint{font-size:10px; font-weight:700; color:var(--teal); background:var(--teal-bg);
     border:1px solid rgba(45,212,191,0.3); border-radius:10px; padding:2px 8px; cursor:pointer; white-space:nowrap; flex-shrink:0;}
   .prev-hint:hover{opacity:0.8;}
+  .item-note-input{font-size:12px; padding:5px 8px; width:160px; flex-shrink:0; margin-left:25px;}
   .rounds-footer-row{display:flex; justify-content:flex-end; gap:6px; margin-top:12px; flex-wrap:wrap;}
 
   footer{text-align:center; font-size:11px; color:var(--text-faint); padding:30px 20px 10px; letter-spacing:0.2px;}
@@ -242,6 +243,7 @@
           unit: "floor", tasks: [],
           focus: rp.focus || {}, renalValue: rp.renalValue || "", renalTrend: rp.renalTrend || "", crcl: rp.crcl || "",
           tdmAgent: rp.tdmAgent || "", tdmNextTrough: rp.tdmNextTrough || "", tdmTarget: rp.tdmTarget || "", tdmFrequency: rp.tdmFrequency || "",
+          itemNotes: rp.itemNotes || {},
           a1cLevel: rp.a1cLevel || "", a1cChanges: rp.a1cChanges || "",
           checksByDate: rp.checksByDate || {}
         });
@@ -262,6 +264,7 @@
       if(p.tdmNextTrough === undefined) p.tdmNextTrough = "";
       if(p.tdmTarget === undefined) p.tdmTarget = "";
       if(p.tdmFrequency === undefined) p.tdmFrequency = "";
+      if(!p.itemNotes) p.itemNotes = {};
       if(p.a1cLevel === undefined) p.a1cLevel = "";
       if(p.a1cChanges === undefined) p.a1cChanges = "";
       if(!p.checksByDate) p.checksByDate = {};
@@ -381,7 +384,8 @@
     var p = {
       id: uid(), name: name, room: roomEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
       unit: unitEl.value, tasks: [], focus: {}, renalValue: "", renalTrend: "", crcl: "",
-      tdmAgent: "", tdmNextTrough: "", tdmTarget: "", tdmFrequency: "", a1cLevel: "", a1cChanges: "", checksByDate: {}
+      tdmAgent: "", tdmNextTrough: "", tdmTarget: "", tdmFrequency: "", a1cLevel: "", a1cChanges: "",
+      itemNotes: {}, checksByDate: {}
     };
     state.patients.unshift(p);
     nameEl.value = ""; roomEl.value = ""; dxEl.value = ""; efEl.value = "";
@@ -444,6 +448,13 @@
     saveState();
     renderPatients();
   }
+  function updateItemNote(pid, itemId, value){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    if(value) p.itemNotes[itemId] = value;
+    else delete p.itemNotes[itemId];
+    saveState();
+  }
   function carryForwardAll(pid){
     var p = state.patients.find(function(p){ return p.id === pid; });
     if(!p) return;
@@ -462,13 +473,15 @@
     renderPatients();
   }
 
-  function roundsItemHtml(pid, item, todayChecks, prevChecks){
+  function roundsItemHtml(pid, item, todayChecks, prevChecks, notes){
     var checked = !!todayChecks[item.id];
     var showHint = !checked && !!prevChecks[item.id];
+    var noteVal = (notes && notes[item.id]) || "";
     return '<div class="rounds-item">' +
       '<input type="checkbox" id="rchk-' + pid + '-' + item.id + '" data-pid="' + pid + '" data-item="' + item.id + '" ' + (checked ? "checked" : "") + '>' +
       '<label for="rchk-' + pid + '-' + item.id + '">' + escapeHtml(item.t) + (item.n ? '<span class="note">' + escapeHtml(item.n) + '</span>' : '') + '</label>' +
       (showHint ? '<span class="prev-hint" data-carry-item="' + pid + '|' + item.id + '" title="Checked on a previous day — click to confirm for today">✓ prior</span>' : '') +
+      '<input type="text" class="item-note-input" placeholder="note (e.g. reason if held)" value="' + escapeHtml(noteVal) + '" data-item-note="' + pid + '|' + item.id + '">' +
     '</div>';
   }
 
@@ -539,7 +552,9 @@
     candidates.forEach(function(c){
       if(today[c.item.id]) return;
       if(openSourceIds.indexOf(c.item.id) !== -1) return;
-      p.tasks.push({ id: uid(), text: c.area + ": " + c.item.t, due: "", priority: "routine", done: false, sourceItem: c.item.id });
+      var note = p.itemNotes[c.item.id];
+      var text = c.area + ": " + c.item.t + (note ? " — " + note : "");
+      p.tasks.push({ id: uid(), text: text, due: "", priority: "routine", done: false, sourceItem: c.item.id });
       added++;
     });
 
@@ -586,7 +601,7 @@
     var doneTasks = p.tasks.filter(function(t){ return t.done; });
     var orderedTasks = openTasks.concat(doneTasks);
 
-    var coreHtml = ROUNDS_CORE_ITEMS.map(function(item){ return roundsItemHtml(p.id, item, today, prev); }).join("");
+    var coreHtml = ROUNDS_CORE_ITEMS.map(function(item){ return roundsItemHtml(p.id, item, today, prev, p.itemNotes); }).join("");
 
     var focusHtml = "";
     FOCUS_ORDER.forEach(function(key){
@@ -614,7 +629,7 @@
         '</div>';
       }
       focusHtml += '<div class="rounds-section"><div class="rounds-section-title">' + escapeHtml(area.label) + '</div>' +
-        area.items.map(function(item){ return roundsItemHtml(p.id, item, today, prev); }).join("") +
+        area.items.map(function(item){ return roundsItemHtml(p.id, item, today, prev, p.itemNotes); }).join("") +
         extraHtml +
       '</div>';
     });
@@ -712,6 +727,15 @@
         toggleRoundsCheck(parts[0], parts[1]);
       });
     });
+    wrap.querySelectorAll("[data-item-note]").forEach(function(inp){
+      inp.addEventListener("click", function(e){ e.stopPropagation(); });
+      inp.addEventListener("change", function(){
+        var parts = inp.dataset.itemNote.split("|");
+        openPatients[parts[0]] = true;
+        updateItemNote(parts[0], parts[1], inp.value.trim());
+        renderPatients();
+      });
+    });
     wrap.querySelectorAll("[data-carry-forward]").forEach(function(btn){
       btn.addEventListener("click", function(e){
         e.stopPropagation();
@@ -781,7 +805,9 @@
     html += '<div class="print-section"><h2>Today’s Review Checklist</h2><ul class="print-list">';
     reviewItems.forEach(function(item){
       var checked = !!today[item.id];
-      html += '<li class="' + (checked ? "print-checked" : "print-unchecked") + '">' + (checked ? "✓" : "☐") + ' ' + escapeHtml(item.t) + '</li>';
+      var note = p.itemNotes[item.id];
+      html += '<li class="' + (checked ? "print-checked" : "print-unchecked") + '">' + (checked ? "✓" : "☐") + ' ' + escapeHtml(item.t) +
+        (note ? ' <span class="print-dim">— ' + escapeHtml(note) + '</span>' : '') + '</li>';
     });
     html += '</ul>';
     var renalBits = [];
