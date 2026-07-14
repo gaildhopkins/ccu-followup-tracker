@@ -864,7 +864,7 @@
       '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
     '</div>';
     html += buildPatientBlockHtml(p);
-    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor | For Educational Use Only</div>';
+    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "Patient Summary - " + p.name;
@@ -905,7 +905,7 @@
     if(p.tdmNextTrough) html += '<p class="print-dim" style="margin-top:6px;">Next trough due: ' + formatDateTime(p.tdmNextTrough) + '</p>';
     html += '</div>';
 
-    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor | For Educational Use Only</div>';
+    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "TDM Note - " + p.name;
@@ -928,7 +928,7 @@
       html += buildPatientBlockHtml(p);
       if(idx < ordered.length - 1) html += '<div class="print-pagebreak"></div>';
     });
-    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor | For Educational Use Only</div>';
+    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "Full Roster - Detailed Summary";
@@ -939,10 +939,8 @@
     var today = getTodayChecks(p);
     var medRec = !!today.medrec;
     var vte = !!today.vte;
-    var vitalsBits = [];
-    if(p.crcl) vitalsBits.push("CrCl " + escapeHtml(p.crcl));
-    if(p.a1cLevel) vitalsBits.push("A1C " + escapeHtml(p.a1cLevel));
-    var vitalsCell = vitalsBits.length ? vitalsBits.join("<br>") : "—";
+    var crclCell = p.crcl ? escapeHtml(p.crcl) : "—";
+    var a1cCell = p.a1cLevel ? escapeHtml(p.a1cLevel) : "—";
     var focusParts = [];
     if(p.focus.tdm){
       var tdmBits = [];
@@ -967,7 +965,8 @@
       '<td>' + escapeHtml(p.dx || "—") + (p.ef ? ' <span class="print-dim">(EF ' + escapeHtml(p.ef) + '%)</span>' : '') + '</td>' +
       '<td class="' + (medRec ? "print-status-ok" : "") + '">' + (medRec ? "✓" : "☐") + '</td>' +
       '<td class="' + (vte ? "print-status-ok" : "") + '">' + (vte ? "✓" : "☐") + '</td>' +
-      '<td>' + vitalsCell + '</td>' +
+      '<td>' + crclCell + '</td>' +
+      '<td>' + a1cCell + '</td>' +
       '<td class="print-focus-cell">' + focusCell + '</td>' +
       '<td>' + todoCell + '</td>' +
     '</tr>';
@@ -990,13 +989,13 @@
       if(!list.length) return;
       html += '<div class="print-section"><h2>' + UNIT_LABELS[unitKey] + ' (' + list.length + ')</h2>';
       html += '<table class="print-table print-rounds-table"><thead><tr>' +
-        '<th>Room</th><th>Patient</th><th>Dx</th><th>Med Rec</th><th>VTE</th><th>CrCl / A1C</th><th>Monitoring</th><th>To Do</th>' +
+        '<th>Room</th><th>Patient</th><th>Dx</th><th>Med Rec</th><th>VTE</th><th>CrCl</th><th>A1C</th><th>Monitoring</th><th>To Do</th>' +
       '</tr></thead><tbody>';
       list.forEach(function(p){ html += buildRoundsPrintRow(p); });
       html += '</tbody></table></div>';
     });
 
-    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor | For Educational Use Only</div>';
+    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "Daily Rounds - " + todayStr();
