@@ -241,7 +241,7 @@
           id: rp.id, name: rp.name, room: rp.room || "", dx: rp.dx || "", ef: rp.ef || "",
           unit: "floor", tasks: [],
           focus: rp.focus || {}, renalValue: rp.renalValue || "", renalTrend: rp.renalTrend || "", crcl: rp.crcl || "",
-          tdmAgent: rp.tdmAgent || "", tdmNextTrough: rp.tdmNextTrough || "", tdmTarget: rp.tdmTarget || "",
+          tdmAgent: rp.tdmAgent || "", tdmNextTrough: rp.tdmNextTrough || "", tdmTarget: rp.tdmTarget || "", tdmFrequency: rp.tdmFrequency || "",
           a1cLevel: rp.a1cLevel || "", a1cChanges: rp.a1cChanges || "",
           checksByDate: rp.checksByDate || {}
         });
@@ -261,6 +261,7 @@
       if(p.tdmAgent === undefined) p.tdmAgent = "";
       if(p.tdmNextTrough === undefined) p.tdmNextTrough = "";
       if(p.tdmTarget === undefined) p.tdmTarget = "";
+      if(p.tdmFrequency === undefined) p.tdmFrequency = "";
       if(p.a1cLevel === undefined) p.a1cLevel = "";
       if(p.a1cChanges === undefined) p.a1cChanges = "";
       if(!p.checksByDate) p.checksByDate = {};
@@ -380,7 +381,7 @@
     var p = {
       id: uid(), name: name, room: roomEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
       unit: unitEl.value, tasks: [], focus: {}, renalValue: "", renalTrend: "", crcl: "",
-      tdmAgent: "", tdmNextTrough: "", tdmTarget: "", a1cLevel: "", a1cChanges: "", checksByDate: {}
+      tdmAgent: "", tdmNextTrough: "", tdmTarget: "", tdmFrequency: "", a1cLevel: "", a1cChanges: "", checksByDate: {}
     };
     state.patients.unshift(p);
     nameEl.value = ""; roomEl.value = ""; dxEl.value = ""; efEl.value = "";
@@ -598,7 +599,9 @@
             '</select></div>' +
             '<div class="rounds-field"><label>Next Trough Due</label><input type="datetime-local" value="' + escapeHtml(p.tdmNextTrough) + '" data-field="tdmNextTrough" data-pid="' + p.id + '" style="width:190px;"></div>' +
             '<div class="rounds-field"><label>Target Level</label><input type="text" value="' + escapeHtml(p.tdmTarget) + '" data-field="tdmTarget" data-pid="' + p.id + '" style="width:110px;"></div>' +
+            '<div class="rounds-field"><label>Monitoring Frequency</label><input type="text" value="' + escapeHtml(p.tdmFrequency) + '" data-field="tdmFrequency" data-pid="' + p.id + '" style="width:170px;"></div>' +
           '</div>' +
+          '<button type="button" class="btn small secondary" data-tdm-note="' + p.id + '" style="margin-top:10px;">Generate TDM Consult Note</button>' +
         '</div>';
         return;
       }
@@ -735,6 +738,9 @@
     wrap.querySelectorAll("[data-export-pdf]").forEach(function(btn){
       btn.addEventListener("click", function(e){ e.stopPropagation(); exportPatientPDF(btn.dataset.exportPdf); });
     });
+    wrap.querySelectorAll("[data-tdm-note]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); exportTdmConsultNote(btn.dataset.tdmNote); });
+    });
     wrap.querySelectorAll("[data-del-patient]").forEach(function(btn){
       btn.addEventListener("click", function(e){ e.stopPropagation(); deletePatient(btn.dataset.delPatient); });
     });
@@ -845,6 +851,47 @@
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "Patient Summary - " + p.name;
+    window.print();
+  }
+
+  // Pre-fills the TDM table from the CCU Care Plan & TDM Documentation Template using data
+  // already captured in Daily Rounds. Result/Date and Follow-Up Action are left blank —
+  // those require an actual drawn level and a clinical decision, not something to auto-fill.
+  function exportTdmConsultNote(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+
+    var todayLong = new Date().toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" });
+
+    var html = '<div class="print-header">' +
+      '<h1>TDM Documentation Note</h1>' +
+      '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
+    '</div>';
+
+    html += '<table class="print-table" style="margin-bottom:18px;"><tbody>' +
+      '<tr><td style="width:50%;"><strong>Patient Name / MRN:</strong> ' + escapeHtml(p.name) + (p.room ? ' (Room ' + escapeHtml(p.room) + ')' : '') + '</td>' +
+        '<td><strong>Date:</strong> ' + todayLong + '</td></tr>' +
+      '<tr><td><strong>Admitting Diagnosis:</strong> ' + (p.dx ? escapeHtml(p.dx) : '&nbsp;') + '</td>' +
+        '<td><strong>Pharmacist:</strong> &nbsp;</td></tr>' +
+    '</tbody></table>';
+
+    html += '<div class="print-section"><h2>Therapeutic Drug Monitoring (TDM) Documentation</h2>';
+    html += '<table class="print-table"><thead><tr>' +
+      '<th>Drug</th><th>Target Parameter(s)</th><th>Monitoring Frequency</th><th>Result / Date</th><th>Follow-Up Action Taken</th>' +
+    '</tr></thead><tbody><tr>' +
+      '<td>' + (p.tdmAgent ? escapeHtml(p.tdmAgent) : '&nbsp;') + '</td>' +
+      '<td>' + (p.tdmTarget ? escapeHtml(p.tdmTarget) : '&nbsp;') + '</td>' +
+      '<td>' + (p.tdmFrequency ? escapeHtml(p.tdmFrequency) : '&nbsp;') + '</td>' +
+      '<td>&nbsp;</td>' +
+      '<td>&nbsp;</td>' +
+    '</tr></tbody></table>';
+    if(p.tdmNextTrough) html += '<p class="print-dim" style="margin-top:6px;">Next trough due: ' + formatDateTime(p.tdmNextTrough) + '</p>';
+    html += '</div>';
+
+    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor | For Educational Use Only</div>';
+
+    document.getElementById("print-area").innerHTML = html;
+    document.title = "TDM Note - " + p.name;
     window.print();
   }
 
