@@ -151,6 +151,15 @@
   .item-note-input{font-size:12px; padding:5px 8px; width:160px; flex-shrink:0; margin-left:25px;}
   .rounds-footer-row{display:flex; justify-content:flex-end; gap:6px; margin-top:12px; flex-wrap:wrap;}
 
+  /* ---------- Initial Workup ---------- */
+  .workup-toggle{display:flex; justify-content:space-between; align-items:center; cursor:pointer;}
+  .workup-toggle:hover{color:var(--teal);}
+  .workup-body{display:none;}
+  .workup-body.open{display:block;}
+  .workup-subtitle{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim); margin:12px 0 4px 0;}
+  .workup-subtitle:first-child{margin-top:6px;}
+  .workup-textarea{width:100%; min-height:50px; resize:vertical; font-size:13px; margin-top:2px;}
+
   footer{text-align:center; font-size:11px; color:var(--text-faint); padding:30px 20px 10px; letter-spacing:0.2px;}
 
   @media (max-width:600px){
@@ -320,6 +329,10 @@
       if(!p.coreChecks) p.coreChecks = {};
       if(p.dx === undefined) p.dx = "";
       if(p.ef === undefined) p.ef = "";
+      ["workupPresenting", "workupPmh", "workupInfusions", "workupNeuro",
+        "workupCvRhythm", "workupCvRate", "workupCvBp", "workupCvLabs", "workupCvCath", "workupCvEcho", "workupCvGdmt",
+        "workupResp", "workupGi", "workupGu", "workupGlycemic", "workupHeme", "workupId",
+        "workupHomeMeds"].forEach(function(f){ if(p[f] === undefined) p[f] = ""; });
     });
 
     // One-time migration: Core Review items now persist instead of resetting daily.
@@ -406,6 +419,38 @@
     return d.toLocaleDateString(undefined, { month:"short", day:"numeric" }) + " " + d.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
   }
 
+  // Initial admission workup — one collapsible section, filled in once on admission and editable
+  // afterward. Modeled on the CCU "Quick review internal comment" framework: Cardiovascular gets
+  // short labeled sub-fields (matching that template closely) since it's the system with the most
+  // day-to-day detail on this unit; other systems are a single textarea with a placeholder hint
+  // drawn from the same framework. The detailed GDMT indication/contraindication tables from the
+  // full rounding template are intentionally not reproduced here — that logic is already covered
+  // by the HFrEF/HFpEF/ACS focus-area checklists elsewhere in Daily Rounds.
+  var WORKUP_SECTIONS = [
+    { title: "Presenting Complaint / Why Admitted", field: "workupPresenting" },
+    { title: "Past Medical History", field: "workupPmh" },
+    { title: "Infusions", field: "workupInfusions", placeholder: "Sedatives, vasopressors, inotropes, cardiac drips (agent + rate)..." },
+    { title: "Neurological", field: "workupNeuro", placeholder: "Sedation, CAM / RASS / CPOT..." },
+    { title: "Cardiovascular", cv: true },
+    { title: "Respiratory", field: "workupResp", placeholder: "FiO2 / O2 delivery, CXR findings..." },
+    { title: "Gastrointestinal", field: "workupGi", placeholder: "Bowel meds, N/V, medication route (crush/whole/tube — NG/OG/PEG)..." },
+    { title: "Genitourinary / Renal", field: "workupGu", placeholder: "Baseline creatinine/eGFR, I/O, foley, diuretic, fluid balance..." },
+    { title: "Glycemic", field: "workupGlycemic", placeholder: "POC glucose, A1C..." },
+    { title: "Hematology / VTE Prophylaxis", field: "workupHeme", placeholder: "Hgb baseline/trend, platelet, VTE prophylaxis..." },
+    { title: "Infection / ID", field: "workupId", placeholder: "Antibiotics, cultures pending, temp/WBC/CRP trend..." },
+    { title: "Home Medications / Medication Reconciliation", field: "workupHomeMeds", placeholder: "Home med list reconciled, drug coverage/formulary status..." },
+  ];
+  var WORKUP_CV_FIELDS = [
+    { label: "Rhythm", field: "workupCvRhythm" },
+    { label: "Rate (HR)", field: "workupCvRate" },
+    { label: "BP", field: "workupCvBp" },
+    { label: "Cardiac Labs", field: "workupCvLabs", placeholder: "TnI, BNP, lipids..." },
+    { label: "Cath / Angio / Rt Heart", field: "workupCvCath" },
+    { label: "Echo Results", field: "workupCvEcho" },
+    { label: "ACS / GDMT Status", field: "workupCvGdmt" },
+  ];
+  var openWorkupSections = {};
+
   // ================= DATE HELPERS =================
   function todayStr(){
     var d = new Date();
@@ -450,7 +495,11 @@
       id: uid(), name: name, room: roomEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
       unit: unitEl.value, tasks: [], focus: {}, crcl: "", coreChecks: {},
       tdmAgent: "", tdmNextTrough: "", tdmTarget: "", tdmFrequency: "", a1cLevel: "", a1cChanges: "",
-      itemNotes: {}, checksByDate: {}
+      itemNotes: {}, checksByDate: {},
+      workupPresenting: "", workupPmh: "", workupInfusions: "", workupNeuro: "",
+      workupCvRhythm: "", workupCvRate: "", workupCvBp: "", workupCvLabs: "", workupCvCath: "", workupCvEcho: "", workupCvGdmt: "",
+      workupResp: "", workupGi: "", workupGu: "", workupGlycemic: "", workupHeme: "", workupId: "",
+      workupHomeMeds: ""
     };
     state.patients.unshift(p);
     nameEl.value = ""; roomEl.value = ""; dxEl.value = ""; efEl.value = "";
@@ -547,6 +596,32 @@
     p.focus[key] = !p.focus[key];
     saveState();
     renderPatients();
+  }
+
+  function buildWorkupSectionHtml(p){
+    var isOpen = !!openWorkupSections[p.id];
+    var fieldsHtml = WORKUP_SECTIONS.map(function(sec){
+      if(sec.cv){
+        return '<div class="workup-subtitle">Cardiovascular</div>' +
+          '<div class="rounds-head-row">' +
+          WORKUP_CV_FIELDS.map(function(cf){
+            return '<div class="rounds-field"><label>' + escapeHtml(cf.label) + '</label><input type="text" value="' + escapeHtml(p[cf.field]) + '" data-field="' + cf.field + '" data-pid="' + p.id + '" placeholder="' + escapeHtml(cf.placeholder || "") + '" style="width:150px;"></div>';
+          }).join("") +
+          '</div>';
+      }
+      return '<div class="workup-subtitle">' + escapeHtml(sec.title) + '</div>' +
+        '<textarea class="workup-textarea" data-field="' + sec.field + '" data-pid="' + p.id + '" placeholder="' + escapeHtml(sec.placeholder || "") + '">' + escapeHtml(p[sec.field]) + '</textarea>';
+    }).join("");
+
+    return '<div class="rounds-section">' +
+      '<div class="rounds-section-title workup-toggle" data-workup-toggle="' + p.id + '">' +
+        '<span>Initial Workup</span><span>' + (isOpen ? "▾" : "▸") + '</span>' +
+      '</div>' +
+      '<div class="workup-body' + (isOpen ? " open" : "") + '" id="workup-body-' + p.id + '">' +
+        fieldsHtml +
+        '<button type="button" class="btn small secondary" data-workup-note="' + p.id + '" style="margin-top:10px;">Generate Workup Note</button>' +
+      '</div>' +
+    '</div>';
   }
 
   function roundsItemHtml(pid, item, checked, showHint, notes){
@@ -740,6 +815,7 @@
           '<div class="rounds-field"><label>CrCl</label><input type="text" value="' + escapeHtml(p.crcl) + '" data-field="crcl" data-pid="' + p.id + '" style="width:65px;"></div>' +
           '<div class="rounds-field"><label>A1C</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:65px;"></div>' +
         '</div>' +
+        buildWorkupSectionHtml(p) +
         '<div class="focus-chips">' + chipsHtml + '</div>' +
         '<div class="rounds-section"><div class="rounds-section-title">Core Review</div>' + coreHtml + '</div>' +
         focusHtml +
@@ -773,9 +849,23 @@
       el.addEventListener("click", function(e){ e.stopPropagation(); });
       el.addEventListener("change", function(){
         openPatients[el.dataset.pid] = true;
+        if(el.dataset.field.indexOf("workup") === 0) openWorkupSections[el.dataset.pid] = true;
         updatePatientField(el.dataset.pid, el.dataset.field, el.value);
         renderPatients();
       });
+    });
+    wrap.querySelectorAll("[data-workup-toggle]").forEach(function(el){
+      el.addEventListener("click", function(e){
+        e.stopPropagation();
+        var pid = el.dataset.workupToggle;
+        openPatients[pid] = true;
+        openWorkupSections[pid] = !openWorkupSections[pid];
+        document.getElementById("workup-body-" + pid).classList.toggle("open", openWorkupSections[pid]);
+        el.querySelector("span:last-child").textContent = openWorkupSections[pid] ? "▾" : "▸";
+      });
+    });
+    wrap.querySelectorAll("[data-workup-note]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); exportWorkupNote(btn.dataset.workupNote); });
     });
     wrap.querySelectorAll("[data-focus-toggle]").forEach(function(btn){
       btn.addEventListener("click", function(e){
@@ -939,6 +1029,64 @@
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "Patient Summary - " + p.name;
+    window.print();
+  }
+
+  // Formats the Initial Workup fields into a printable admission note. Sections with nothing
+  // entered are omitted. Follow-Up Items are pulled live from the patient's existing
+  // Follow-Up/To-Do task list rather than a separate field, so it never goes out of sync.
+  function buildWorkupNoteHtml(p){
+    var html = '<div class="print-header">' +
+      '<h1>Initial Patient Workup</h1>' +
+      '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
+    '</div>';
+    html += '<div class="print-patient">';
+    html += '<div class="print-patient-name">' + escapeHtml(p.name) + '</div>';
+    var metaBits = [];
+    if(p.room) metaBits.push("Room " + p.room);
+    if(p.dx) metaBits.push(p.dx);
+    if(p.ef) metaBits.push("EF " + p.ef + "%");
+    if(metaBits.length) html += '<div class="print-patient-room">' + escapeHtml(metaBits.join(" · ")) + '</div>';
+    html += '</div>';
+
+    function section(title, text){
+      if(!text) return "";
+      return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><p style="white-space:pre-wrap; margin:0;">' + escapeHtml(text) + '</p></div>';
+    }
+
+    WORKUP_SECTIONS.forEach(function(sec){
+      if(sec.cv){
+        var cvBits = WORKUP_CV_FIELDS.filter(function(cf){ return p[cf.field]; }).map(function(cf){ return cf.label + ": " + p[cf.field]; });
+        if(cvBits.length){
+          html += '<div class="print-section"><h2>Cardiovascular</h2><ul class="print-list">' +
+            cvBits.map(function(b){ return '<li>' + escapeHtml(b) + '</li>'; }).join("") +
+          '</ul></div>';
+        }
+        return;
+      }
+      html += section(sec.title, p[sec.field]);
+    });
+
+    var openTasks = p.tasks.filter(function(t){ return !t.done; });
+    html += '<div class="print-section"><h2>Follow-Up Items</h2>';
+    if(openTasks.length){
+      html += '<ul class="print-list">' + openTasks.map(function(t){
+        return '<li>' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(due ' + formatDue(t.due) + ')</span>' : '') + (t.priority === "urgent" ? ' <span class="print-dim">[Urgent]</span>' : '') + '</li>';
+      }).join("") + '</ul>';
+    } else {
+      html += '<p class="print-empty">No open follow-up items.</p>';
+    }
+    html += '</div>';
+
+    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
+    return html;
+  }
+
+  function exportWorkupNote(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    document.getElementById("print-area").innerHTML = buildWorkupNoteHtml(p);
+    document.title = "Initial Workup - " + p.name;
     window.print();
   }
 
