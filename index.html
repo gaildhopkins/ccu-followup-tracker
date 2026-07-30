@@ -405,27 +405,6 @@
         p.workupIdOnAbx = (hadAbxFocus || hadAbxChecks || (p.abxRows && p.abxRows.length) ||
           (p.cultures && p.cultures.length) || p.tdmAgent || p.workupIdWbc || p.workupIdTemp) ? "Y" : "";
       }
-
-      // Default each Cardiovascular condition gate (HFrEF/HFpEF/AF/ACS) to Y if this patient
-      // already had the matching old focus area active or already-checked items from before the
-      // per-condition toggle existed, so nothing already entered gets silently hidden.
-      function hadCheckedAny(ids){
-        return ids.some(function(id){
-          return Object.keys(p.checksByDate).some(function(d){ return p.checksByDate[d] && p.checksByDate[d][id]; });
-        });
-      }
-      if(p.cvHasHfref === undefined){
-        p.cvHasHfref = (!!(p.focus && p.focus.hfref) || hadCheckedAny(["hfref-arni", "hfref-bb", "hfref-mra", "hfref-sglt2", "hfref-diur"])) ? "Y" : "";
-      }
-      if(p.cvHasHfpef === undefined){
-        p.cvHasHfpef = (!!(p.focus && p.focus.hfpef) || hadCheckedAny(["hfpef-sglt2", "hfpef-mra", "hfpef-diur"])) ? "Y" : "";
-      }
-      if(p.cvHasAf === undefined){
-        p.cvHasAf = (!!(p.focus && p.focus.af) || hadCheckedAny(["af-oac", "af-rate"])) ? "Y" : "";
-      }
-      if(p.cvHasAcs === undefined){
-        p.cvHasAcs = (!!(p.focus && p.focus.acs) || hadCheckedAny(["acs-asa", "acs-p2y12", "acs-statin", "acs-ace", "acs-bb"])) ? "Y" : "";
-      }
     });
 
     // One-time migration: Core Review items now persist instead of resetting daily.
@@ -498,29 +477,27 @@
   ];
   var ALL_IV_MEDS_ITEMS = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(g.items); }, []);
 
-  // HFrEF/HFpEF/AF/ACS guideline-directed therapy checklists — folded directly into the
-  // Cardiovascular section of the Initial Workup so every patient's card follows the same
-  // head-to-toe layout with no separate switch controls. Each group has its own Y/N gate
-  // (toggleField) so a patient without, say, AF doesn't show (or generate follow-ups for) the
-  // AF checklist — only the conditions actually present are visible.
+  // HFrEF/HFpEF/AF/ACS guideline-directed therapy checklists — previously separate focus-chip
+  // toggles, now folded directly into the Cardiovascular section of the Initial Workup so every
+  // patient's card follows the same head-to-toe layout with no separate switch controls.
   var CV_CHECK_GROUPS = [
-    { label: "HFrEF (EF ≤40%)", toggleField: "cvHasHfref", items: [
+    { label: "HFrEF (EF ≤40%)", items: [
       { id: "hfref-arni", t: "ARNI / ACEi / ARB", n: "Continued, held, or contraindicated — document why" },
       { id: "hfref-bb", t: "Beta-blocker" },
       { id: "hfref-mra", t: "MRA", n: "EF ≤40% + HF or DM" },
       { id: "hfref-sglt2", t: "SGLT2i" },
       { id: "hfref-diur", t: "Diuretic optimized for euvolemia" },
     ]},
-    { label: "HFpEF (EF >40%, HF)", toggleField: "cvHasHfpef", items: [
+    { label: "HFpEF (EF >40%, HF)", items: [
       { id: "hfpef-sglt2", t: "SGLT2i" },
       { id: "hfpef-mra", t: "MRA if applicable" },
       { id: "hfpef-diur", t: "Diuretic optimized for euvolemia" },
     ]},
-    { label: "Atrial Fibrillation", toggleField: "cvHasAf", items: [
+    { label: "Atrial Fibrillation", items: [
       { id: "af-oac", t: "Anticoagulation indicated & renal-dosed", n: "Assess bleeding risk (HAS-BLED or equivalent)" },
       { id: "af-rate", t: "Rate / rhythm control plan clear" },
     ]},
-    { label: "ACS", toggleField: "cvHasAcs", items: [
+    { label: "ACS", items: [
       { id: "acs-asa", t: "ASA" },
       { id: "acs-p2y12", t: "P2Y12 inhibitor" },
       { id: "acs-statin", t: "High-intensity statin" },
@@ -529,7 +506,6 @@
     ]},
   ];
   var ALL_CV_CHECK_ITEMS = CV_CHECK_GROUPS.reduce(function(acc, g){ return acc.concat(g.items); }, []);
-  var CV_CONDITION_OPTIONS = ["", "Y", "N"];
 
   var ABX_ITEMS = [
     { id: "abx-appropriate", t: "Spectrum / indication still appropriate", n: "De-escalate per culture results when available" },
@@ -657,7 +633,6 @@
       workupNeuroGeneral: "", workupNeuroRass: "", workupNeuroGcs: "", workupNeuroLimb: "", workupNeuroImaging: "", workupNeuroPlan: "",
       workupCvRhythm: "", workupCvRate: "", workupCvBp: "", workupCvEdemaGrade: "", workupCvEdemaSite: "",
       workupCvTni: "", workupCvBnp: "", workupCvLdl: "", workupCvEcho: "", workupCvEcg: "", workupCvAngio: "",
-      cvHasHfref: "", cvHasHfpef: "", cvHasAf: "", cvHasAcs: "",
       workupRespCxr: "", workupRespChestCt: "", workupRespChestTube: "",
       workupGiBowelMovement: "", workupGiFms: "", workupGiRoute: "", workupGiImaging: "",
       workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuCurrentCr: "",
@@ -906,15 +881,9 @@
       workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(5)) +
       '<div class="iv-groups-row" style="margin-top:6px;">' +
         CV_CHECK_GROUPS.map(function(g){
-          var has = p[g.toggleField] === "Y";
           return '<div>' +
-            '<div class="workup-subtitle" style="margin-top:0; text-transform:none; font-weight:600; color:var(--text); display:flex; align-items:center; justify-content:space-between; gap:6px;">' +
-              '<span>' + escapeHtml(g.label) + '</span>' +
-              '<select data-field="' + g.toggleField + '" data-pid="' + p.id + '" style="font-size:11px; padding:2px 4px; width:54px; flex-shrink:0;">' +
-                CV_CONDITION_OPTIONS.map(function(o){ return '<option value="' + o + '"' + (p[g.toggleField] === o ? " selected" : "") + '>' + (o || "—") + '</option>'; }).join("") +
-              '</select>' +
-            '</div>' +
-            (has ? checklistItemsHtml(p, g.items, today, prev) : '') +
+            '<div class="workup-subtitle" style="margin-top:0; text-transform:none; font-weight:600; color:var(--text);">' + escapeHtml(g.label) + '</div>' +
+            checklistItemsHtml(p, g.items, today, prev) +
           '</div>';
         }).join("") +
       '</div>';
@@ -1127,12 +1096,7 @@
     if(!p) return;
     var today = getTodayChecks(p);
     var candidates = ROUNDS_CORE_ITEMS.map(function(item){ return { item: item, area: "Core Review", checked: !!p.coreChecks[item.id], followUpWhenChecked: false }; });
-    // Only condition groups actually toggled to Y generate follow-ups — a patient without AF,
-    // for example, shouldn't get a follow-up nagging about unchecked AF items.
-    CV_CHECK_GROUPS.forEach(function(g){
-      if(p[g.toggleField] !== "Y") return;
-      g.items.forEach(function(item){ candidates.push({ item: item, area: "Cardiovascular", checked: !!today[item.id], followUpWhenChecked: false }); });
-    });
+    ALL_CV_CHECK_ITEMS.forEach(function(item){ candidates.push({ item: item, area: "Cardiovascular", checked: !!today[item.id], followUpWhenChecked: false }); });
     if(p.workupIdOnAbx === "Y"){
       ABX_ITEMS.forEach(function(item){ candidates.push({ item: item, area: "Antibiotics", checked: !!today[item.id], followUpWhenChecked: false }); });
     }
