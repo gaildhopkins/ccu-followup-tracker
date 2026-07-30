@@ -218,6 +218,7 @@
   .print-rounds-table{font-size:10.5px;}
   .print-rounds-table th, .print-rounds-table td{padding:4px 6px;}
   .print-focus-cell div{margin-bottom:2px;}
+  .print-status-stack{margin-top:3px; display:flex; flex-direction:column; gap:1px; font-size:10.5px; color:#555;}
 </style>
 </head>
 <body>
@@ -404,6 +405,27 @@
         p.workupIdOnAbx = (hadAbxFocus || hadAbxChecks || (p.abxRows && p.abxRows.length) ||
           (p.cultures && p.cultures.length) || p.tdmAgent || p.workupIdWbc || p.workupIdTemp) ? "Y" : "";
       }
+
+      // Default each Cardiovascular condition gate (HFrEF/HFpEF/AF/ACS) to Y if this patient
+      // already had the matching old focus area active or already-checked items from before the
+      // per-condition toggle existed, so nothing already entered gets silently hidden.
+      function hadCheckedAny(ids){
+        return ids.some(function(id){
+          return Object.keys(p.checksByDate).some(function(d){ return p.checksByDate[d] && p.checksByDate[d][id]; });
+        });
+      }
+      if(p.cvHasHfref === undefined){
+        p.cvHasHfref = (!!(p.focus && p.focus.hfref) || hadCheckedAny(["hfref-arni", "hfref-bb", "hfref-mra", "hfref-sglt2", "hfref-diur"])) ? "Y" : "";
+      }
+      if(p.cvHasHfpef === undefined){
+        p.cvHasHfpef = (!!(p.focus && p.focus.hfpef) || hadCheckedAny(["hfpef-sglt2", "hfpef-mra", "hfpef-diur"])) ? "Y" : "";
+      }
+      if(p.cvHasAf === undefined){
+        p.cvHasAf = (!!(p.focus && p.focus.af) || hadCheckedAny(["af-oac", "af-rate"])) ? "Y" : "";
+      }
+      if(p.cvHasAcs === undefined){
+        p.cvHasAcs = (!!(p.focus && p.focus.acs) || hadCheckedAny(["acs-asa", "acs-p2y12", "acs-statin", "acs-ace", "acs-bb"])) ? "Y" : "";
+      }
     });
 
     // One-time migration: Core Review items now persist instead of resetting daily.
@@ -476,27 +498,29 @@
   ];
   var ALL_IV_MEDS_ITEMS = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(g.items); }, []);
 
-  // HFrEF/HFpEF/AF/ACS guideline-directed therapy checklists — previously separate focus-chip
-  // toggles, now folded directly into the Cardiovascular section of the Initial Workup so every
-  // patient's card follows the same head-to-toe layout with no separate switch controls.
+  // HFrEF/HFpEF/AF/ACS guideline-directed therapy checklists — folded directly into the
+  // Cardiovascular section of the Initial Workup so every patient's card follows the same
+  // head-to-toe layout with no separate switch controls. Each group has its own Y/N gate
+  // (toggleField) so a patient without, say, AF doesn't show (or generate follow-ups for) the
+  // AF checklist — only the conditions actually present are visible.
   var CV_CHECK_GROUPS = [
-    { label: "HFrEF (EF ≤40%)", items: [
+    { label: "HFrEF (EF ≤40%)", toggleField: "cvHasHfref", items: [
       { id: "hfref-arni", t: "ARNI / ACEi / ARB", n: "Continued, held, or contraindicated — document why" },
       { id: "hfref-bb", t: "Beta-blocker" },
       { id: "hfref-mra", t: "MRA", n: "EF ≤40% + HF or DM" },
       { id: "hfref-sglt2", t: "SGLT2i" },
       { id: "hfref-diur", t: "Diuretic optimized for euvolemia" },
     ]},
-    { label: "HFpEF (EF >40%, HF)", items: [
+    { label: "HFpEF (EF >40%, HF)", toggleField: "cvHasHfpef", items: [
       { id: "hfpef-sglt2", t: "SGLT2i" },
       { id: "hfpef-mra", t: "MRA if applicable" },
       { id: "hfpef-diur", t: "Diuretic optimized for euvolemia" },
     ]},
-    { label: "Atrial Fibrillation", items: [
+    { label: "Atrial Fibrillation", toggleField: "cvHasAf", items: [
       { id: "af-oac", t: "Anticoagulation indicated & renal-dosed", n: "Assess bleeding risk (HAS-BLED or equivalent)" },
       { id: "af-rate", t: "Rate / rhythm control plan clear" },
     ]},
-    { label: "ACS", items: [
+    { label: "ACS", toggleField: "cvHasAcs", items: [
       { id: "acs-asa", t: "ASA" },
       { id: "acs-p2y12", t: "P2Y12 inhibitor" },
       { id: "acs-statin", t: "High-intensity statin" },
@@ -505,6 +529,7 @@
     ]},
   ];
   var ALL_CV_CHECK_ITEMS = CV_CHECK_GROUPS.reduce(function(acc, g){ return acc.concat(g.items); }, []);
+  var CV_CONDITION_OPTIONS = ["", "Y", "N"];
 
   var ABX_ITEMS = [
     { id: "abx-appropriate", t: "Spectrum / indication still appropriate", n: "De-escalate per culture results when available" },
@@ -632,6 +657,7 @@
       workupNeuroGeneral: "", workupNeuroRass: "", workupNeuroGcs: "", workupNeuroLimb: "", workupNeuroImaging: "", workupNeuroPlan: "",
       workupCvRhythm: "", workupCvRate: "", workupCvBp: "", workupCvEdemaGrade: "", workupCvEdemaSite: "",
       workupCvTni: "", workupCvBnp: "", workupCvLdl: "", workupCvEcho: "", workupCvEcg: "", workupCvAngio: "",
+      cvHasHfref: "", cvHasHfpef: "", cvHasAf: "", cvHasAcs: "",
       workupRespCxr: "", workupRespChestCt: "", workupRespChestTube: "",
       workupGiBowelMovement: "", workupGiFms: "", workupGiRoute: "", workupGiImaging: "",
       workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuCurrentCr: "",
@@ -880,9 +906,15 @@
       workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(5)) +
       '<div class="iv-groups-row" style="margin-top:6px;">' +
         CV_CHECK_GROUPS.map(function(g){
+          var has = p[g.toggleField] === "Y";
           return '<div>' +
-            '<div class="workup-subtitle" style="margin-top:0; text-transform:none; font-weight:600; color:var(--text);">' + escapeHtml(g.label) + '</div>' +
-            checklistItemsHtml(p, g.items, today, prev) +
+            '<div class="workup-subtitle" style="margin-top:0; text-transform:none; font-weight:600; color:var(--text); display:flex; align-items:center; justify-content:space-between; gap:6px;">' +
+              '<span>' + escapeHtml(g.label) + '</span>' +
+              '<select data-field="' + g.toggleField + '" data-pid="' + p.id + '" style="font-size:11px; padding:2px 4px; width:54px; flex-shrink:0;">' +
+                CV_CONDITION_OPTIONS.map(function(o){ return '<option value="' + o + '"' + (p[g.toggleField] === o ? " selected" : "") + '>' + (o || "—") + '</option>'; }).join("") +
+              '</select>' +
+            '</div>' +
+            (has ? checklistItemsHtml(p, g.items, today, prev) : '') +
           '</div>';
         }).join("") +
       '</div>';
@@ -964,6 +996,7 @@
       '<div class="workup-body' + (isOpen ? " open" : "") + '" id="workup-body-' + p.id + '">' +
         html +
         '<button type="button" class="btn small secondary" data-workup-note="' + p.id + '" style="margin-top:10px;">Generate Workup Note</button>' +
+        '<button type="button" class="btn small secondary" data-workup-note-copy="' + p.id + '" style="margin-top:10px; margin-left:6px;">Copy Workup Note</button>' +
       '</div>' +
     '</div>';
   }
@@ -1094,7 +1127,12 @@
     if(!p) return;
     var today = getTodayChecks(p);
     var candidates = ROUNDS_CORE_ITEMS.map(function(item){ return { item: item, area: "Core Review", checked: !!p.coreChecks[item.id], followUpWhenChecked: false }; });
-    ALL_CV_CHECK_ITEMS.forEach(function(item){ candidates.push({ item: item, area: "Cardiovascular", checked: !!today[item.id], followUpWhenChecked: false }); });
+    // Only condition groups actually toggled to Y generate follow-ups — a patient without AF,
+    // for example, shouldn't get a follow-up nagging about unchecked AF items.
+    CV_CHECK_GROUPS.forEach(function(g){
+      if(p[g.toggleField] !== "Y") return;
+      g.items.forEach(function(item){ candidates.push({ item: item, area: "Cardiovascular", checked: !!today[item.id], followUpWhenChecked: false }); });
+    });
     if(p.workupIdOnAbx === "Y"){
       ABX_ITEMS.forEach(function(item){ candidates.push({ item: item, area: "Antibiotics", checked: !!today[item.id], followUpWhenChecked: false }); });
     }
@@ -1217,6 +1255,7 @@
           '</div>' +
         '</div>' +
         '<div class="rounds-footer-row">' +
+          '<button class="btn small secondary" data-daily-note-copy="' + p.id + '">Copy Daily Note</button>' +
           '<button class="btn small secondary" data-add-followups="' + p.id + '">Add Follow-Ups for Unchecked</button>' +
           '<button class="btn small secondary" data-export-pdf="' + p.id + '">Export PDF</button>' +
           '<button class="btn small danger" data-del-patient="' + p.id + '">Remove (Discharged)</button>' +
@@ -1254,6 +1293,12 @@
     });
     wrap.querySelectorAll("[data-workup-note]").forEach(function(btn){
       btn.addEventListener("click", function(e){ e.stopPropagation(); exportWorkupNote(btn.dataset.workupNote); });
+    });
+    wrap.querySelectorAll("[data-workup-note-copy]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); copyWorkupNote(btn.dataset.workupNoteCopy, btn); });
+    });
+    wrap.querySelectorAll("[data-daily-note-copy]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); copyDailyNote(btn.dataset.dailyNoteCopy, btn); });
     });
     wrap.querySelectorAll(".rounds-item input[type=checkbox]:not([data-infusions-toggle])").forEach(function(cb){
       cb.addEventListener("click", function(e){ e.stopPropagation(); });
@@ -1606,11 +1651,11 @@
       if(!text) return "";
       return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><p style="white-space:pre-wrap; margin:0;">' + escapeHtml(text) + '</p></div>';
     }
+    // One compact line per section (fields joined by " · "), matching the Monitoring row style
+    // used in the Daily Rounds report, rather than a separate line for every single field.
     function bulletSection(title, lines){
       if(!lines.length) return "";
-      return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><ul class="print-list">' +
-        lines.map(function(l){ return '<li>' + escapeHtml(l) + '</li>'; }).join("") +
-      '</ul></div>';
+      return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><p style="margin:0;">' + escapeHtml(lines.join(" · ")) + '</p></div>';
     }
     function checkedItemLines(items){
       return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
@@ -1709,6 +1754,220 @@
     window.print();
   }
 
+  // Plain-text mirror of buildWorkupNoteHtml — same section content/order, formatted for pasting
+  // directly into an EMR or documentation system rather than printing.
+  function buildWorkupNoteText(p){
+    var out = [];
+    out.push("INITIAL PATIENT WORKUP");
+    out.push("Generated " + genTimestamp());
+    out.push("");
+    out.push(p.name);
+    var metaBits = [];
+    if(p.room) metaBits.push("Room " + p.room);
+    if(p.dx) metaBits.push(p.dx);
+    if(p.ef) metaBits.push("EF " + p.ef + "%");
+    if(metaBits.length) out.push(metaBits.join(" · "));
+    out.push("");
+
+    var today = getTodayChecks(p);
+
+    function textSection(title, text){
+      if(!text) return;
+      out.push(title.toUpperCase());
+      out.push(text);
+      out.push("");
+    }
+    // One compact line per section (fields joined by " · "), matching the Monitoring row style
+    // used in the Daily Rounds report, rather than a separate line for every single field.
+    function bulletSection(title, lines){
+      if(!lines.length) return;
+      out.push(title.toUpperCase() + ": " + lines.join(" · "));
+      out.push("");
+    }
+    function checkedItemLines(items){
+      return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
+        var note = p.itemNotes[item.id];
+        if(item.unit) return item.t + (note ? " — " + note + " " + item.unit : "");
+        return item.t + (note ? " — " + note : "");
+      });
+    }
+
+    textSection("Presenting Complaint / Why Admitted", p.workupPresenting);
+    textSection("Past Medical History", p.workupPmh);
+
+    var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
+    if(p.workupInfusionsOther) infusionLines.push("Other: " + p.workupInfusionsOther);
+    bulletSection("Infusions", infusionLines);
+
+    bulletSection("Neurological", WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+
+    var cvLines = WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
+    cvLines = cvLines.concat(CV_CHECK_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []));
+    bulletSection("Cardiovascular", cvLines);
+
+    var respLines = [];
+    if(p.respMode) respLines.push("Mode: " + p.respMode);
+    if(p.respFio2) respLines.push("FiO2: " + p.respFio2 + "%");
+    if(p.respFlowRate) respLines.push("Flow Rate: " + p.respFlowRate);
+    if(p.respSettings) respLines.push("Support: " + p.respSettings);
+    if(p.respPeep) respLines.push("PEEP: " + p.respPeep);
+    if(p.workupRespCxr) respLines.push("CXR: " + p.workupRespCxr);
+    if(p.workupRespChestCt) respLines.push("Chest CT: " + p.workupRespChestCt);
+    if(p.workupRespChestTube) respLines.push("Chest Tube: " + p.workupRespChestTube);
+    bulletSection("Respiratory", respLines);
+
+    bulletSection("Gastrointestinal", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+
+    bulletSection("Genitourinary", WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+
+    var idLines = formattedAbxRows(p);
+    if(p.abxDuration) idLines.push("Duration: " + p.abxDuration);
+    if(p.abxStopDate) idLines.push("ASO/Stop date: " + formatDue(p.abxStopDate));
+    idLines = idLines.concat(checkedItemLines(ABX_ITEMS));
+    if(p.cultures && p.cultures.length){
+      p.cultures.forEach(function(c){
+        var bits = [];
+        if(c.site) bits.push(c.site);
+        bits.push(c.status || "Pending");
+        if(c.organism) bits.push(c.organism);
+        if(c.sens) bits.push("Sens: " + c.sens);
+        idLines.push("Culture — " + bits.join(" · "));
+      });
+    }
+    if(p.tdmAgent) idLines.push("TDM Agent: " + p.tdmAgent);
+    if(p.tdmTarget) idLines.push("TDM Target: " + p.tdmTarget);
+    if(p.tdmFrequency) idLines.push("TDM Frequency: " + p.tdmFrequency);
+    if(p.tdmNextTrough) idLines.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
+    if(p.workupIdWbc) idLines.push("WBC: " + p.workupIdWbc);
+    if(p.workupIdTemp) idLines.push("Temp: " + p.workupIdTemp);
+    if(p.workupIdCrp) idLines.push("CRP: " + p.workupIdCrp);
+    if(p.workupIdProcalcitonin) idLines.push("Procalcitonin: " + p.workupIdProcalcitonin);
+    if(p.workupIdImaging) idLines.push("Imaging: " + p.workupIdImaging);
+    bulletSection("Infection / ID", idLines);
+
+    var glycemicLines = [];
+    if(p.workupGlycemicPocTrend) glycemicLines.push("POC Trend: " + p.workupGlycemicPocTrend);
+    if(p.a1cLevel) glycemicLines.push("A1C: " + p.a1cLevel);
+    if(p.a1cChanges) glycemicLines.push("Therapy: " + p.a1cChanges);
+    bulletSection("Glycemic", glycemicLines);
+
+    bulletSection("Hematology", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+
+    var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
+    bulletSection("Safety", safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
+
+    textSection("Home Medications / Medication Reconciliation", p.workupHomeMeds);
+
+    out.push("FOLLOW-UP ITEMS");
+    var openTasks = p.tasks.filter(function(t){ return !t.done; });
+    if(openTasks.length){
+      openTasks.forEach(function(t){
+        out.push("- " + t.text + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : ""));
+      });
+    } else {
+      out.push("No open follow-up items.");
+    }
+    out.push("");
+    out.push("G. Hopkins, RPh | RVH CCU & Cardiac Floor");
+
+    return out.join("\n");
+  }
+
+  // Daily progress note — built from today's Core Review + Monitoring data (what's currently
+  // checked/entered) rather than the one-time admission Workup, for day-to-day charting.
+  function buildDailyNoteText(p){
+    var out = [];
+    out.push("DAILY PROGRESS NOTE — " + new Date().toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric", year:"numeric" }));
+    out.push("");
+    var headBits = [p.name];
+    var subBits = [];
+    if(p.room) subBits.push("Room " + p.room);
+    if(p.dx) subBits.push(p.dx);
+    if(p.ef) subBits.push("EF " + p.ef + "%");
+    if(subBits.length) headBits.push("(" + subBits.join(" · ") + ")");
+    out.push(headBits.join(" "));
+    out.push("");
+
+    out.push("CORE REVIEW");
+    ROUNDS_CORE_ITEMS.forEach(function(item){
+      var checked = !!p.coreChecks[item.id];
+      var note = p.itemNotes[item.id];
+      out.push((checked ? "[x] " : "[ ] ") + item.t + (note ? " — " + note : ""));
+    });
+    out.push("");
+
+    if(p.ivpoRows && p.ivpoRows.length){
+      var ivpoBits = p.ivpoRows.map(function(r){
+        var label = r.drugClass === "Other" ? (r.otherText || "Other") : r.drugClass;
+        if(!label) return null;
+        return label + (r.note ? " (" + r.note + ")" : "");
+      }).filter(Boolean);
+      if(ivpoBits.length){
+        out.push("IV → PO CONVERSION");
+        ivpoBits.forEach(function(b){ out.push("- " + b); });
+        out.push("");
+      }
+    }
+
+    var monLines = monitoringLines(p);
+    if(monLines.length){
+      out.push("MONITORING");
+      monLines.forEach(function(l){ out.push(l.label + ": " + l.value); });
+      out.push("");
+    }
+
+    out.push("FOLLOW-UP / TO DO");
+    var openTasks = p.tasks.filter(function(t){ return !t.done; });
+    if(openTasks.length){
+      openTasks.forEach(function(t){
+        out.push("- " + t.text + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : ""));
+      });
+    } else {
+      out.push("No open follow-up items.");
+    }
+    out.push("");
+    out.push("G. Hopkins, RPh | RVH CCU & Cardiac Floor");
+
+    return out.join("\n");
+  }
+
+  // Copies text via a hidden textarea + execCommand rather than the Clipboard API, since this file
+  // is often opened directly (file://) or from a plain static host without a guaranteed secure
+  // context for navigator.clipboard.
+  function copyTextToClipboard(text){
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.top = "-1000px";
+    ta.style.left = "-1000px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    var ok = false;
+    try{ ok = document.execCommand("copy"); }catch(e){ ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function flashButton(btn, msg){
+    if(!btn) return;
+    var original = btn.textContent;
+    btn.textContent = msg;
+    btn.disabled = true;
+    setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 1500);
+  }
+  function copyWorkupNote(pid, btn){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var ok = copyTextToClipboard(buildWorkupNoteText(p));
+    flashButton(btn, ok ? "Copied!" : "Copy failed");
+  }
+  function copyDailyNote(pid, btn){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var ok = copyTextToClipboard(buildDailyNoteText(p));
+    flashButton(btn, ok ? "Copied!" : "Copy failed");
+  }
+
   // Pre-fills the TDM table from the CCU Care Plan & TDM Documentation Template using data
   // already captured in Daily Rounds. Result/Date and Follow-Up Action are left blank —
   // those require an actual drawn level and a clinical decision, not something to auto-fill.
@@ -1790,12 +2049,15 @@
       ? openTasks.map(function(t){ return escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(' + formatDue(t.due) + ')</span>' : ''); }).join('<br>')
       : '<span class="print-dim">—</span>';
 
+    var statusCell = '<div class="print-status-stack">' +
+      '<span class="' + (medRec ? "print-status-ok" : "") + '">' + (medRec ? "✓" : "☐") + ' Med Rec</span>' +
+      '<span class="' + (vte ? "print-status-ok" : "") + '">' + (vte ? "✓" : "☐") + ' VTE</span>' +
+      '<span>CrCl ' + crclCell + '</span>' +
+    '</div>';
+
     return '<tr>' +
-      '<td>' + escapeHtml(p.name) + '<div class="print-dim" style="margin-top:2px;">Room ' + escapeHtml(p.room || "—") + '</div></td>' +
+      '<td>' + escapeHtml(p.name) + '<div class="print-dim" style="margin-top:2px;">Room ' + escapeHtml(p.room || "—") + '</div>' + statusCell + '</td>' +
       '<td style="max-width:260px; word-wrap:break-word;">' + dxCell + '</td>' +
-      '<td class="' + (medRec ? "print-status-ok" : "") + '">' + (medRec ? "✓" : "☐") + '</td>' +
-      '<td class="' + (vte ? "print-status-ok" : "") + '">' + (vte ? "✓" : "☐") + '</td>' +
-      '<td>' + crclCell + '</td>' +
       '<td class="print-focus-cell">' + focusCell + '</td>' +
       '<td>' + todoCell + '</td>' +
     '</tr>';
@@ -1818,7 +2080,7 @@
       if(!list.length) return;
       html += '<div class="print-section"><h2>' + UNIT_LABELS[unitKey] + ' (' + list.length + ')</h2>';
       html += '<table class="print-table print-rounds-table"><thead><tr>' +
-        '<th>Patient</th><th style="width:260px;">Dx</th><th>Med Rec</th><th>VTE</th><th>CrCl</th><th>Monitoring</th><th>To Do</th>' +
+        '<th>Patient</th><th style="width:260px;">Dx</th><th>Monitoring</th><th>To Do</th>' +
       '</tr></thead><tbody>';
       list.forEach(function(p){ html += buildRoundsPrintRow(p); });
       html += '</tbody></table></div>';
