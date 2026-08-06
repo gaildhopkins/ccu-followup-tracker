@@ -372,7 +372,7 @@
         "workupCvTni", "workupCvBnp", "workupCvLdl", "workupCvLactate", "workupCvEcho", "workupCvEcg", "workupCvAngio",
         "workupRespGeneral", "workupRespCxr", "workupRespChestCt", "workupRespChestTube",
         "workupGiGeneral", "workupGiBowelMovement", "workupGiFms", "workupGiRoute", "workupGiLabs", "workupGiImaging",
-        "workupGuGeneral", "workupGuBaselineCr", "workupGuUrineOutput", "workupGuCurrentCr",
+        "workupGuGeneral", "workupGuBaselineCr", "workupGuUrineOutput", "workupGuCurrentCr", "workupGuImaging",
         "workupGuHd", "workupGuHdSchedule", "workupGuPd", "workupGuFoleyDate",
         "workupIdWbc", "workupIdTemp", "workupIdCrp", "workupIdProcalcitonin", "workupIdImaging", "workupGlycemicPocTrend",
         "workupHemeCurrent", "workupHemeBaseline", "workupHemeIron", "workupHemePlt", "workupHemeTreatment",
@@ -678,7 +678,7 @@
       cvHasHfref: "", cvHasHfpef: "", cvHasAf: "", cvHasAcs: "", cvAcsEfLt40: "",
       workupRespGeneral: "", workupRespCxr: "", workupRespChestCt: "", workupRespChestTube: "",
       workupGiGeneral: "", workupGiBowelMovement: "", workupGiFms: "", workupGiRoute: "", workupGiLabs: "", workupGiImaging: "",
-      workupGuGeneral: "", workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuCurrentCr: "",
+      workupGuGeneral: "", workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuCurrentCr: "", workupGuImaging: "",
       workupGuHd: "", workupGuHdSchedule: "", workupGuPd: "", workupGuFoleyDate: "",
       workupIdOnAbx: "", workupIdWbc: "", workupIdTemp: "", workupIdCrp: "", workupIdProcalcitonin: "", workupIdImaging: "", workupGlycemicPocTrend: "",
       workupHemeCurrent: "", workupHemeBaseline: "", workupHemeIron: "", workupHemePlt: "", workupHemeTreatment: "",
@@ -981,14 +981,10 @@
           { label: "Temp", field: "workupIdTemp" },
           { label: "CRP", field: "workupIdCrp" },
           { label: "Procalcitonin", field: "workupIdProcalcitonin" },
+          { label: "Imaging", field: "workupIdImaging" },
         ]) +
         buildCulturesHtml(p) +
-        workupFieldsRowHtml(p, [{ label: "Imaging", field: "workupIdImaging" }]) +
         buildAbxRowsHtml(p) +
-        '<div class="rounds-head-row" style="margin-top:8px;">' +
-          '<div class="rounds-field"><label>ASO / Stop Date</label><input type="date" value="' + escapeHtml(p.abxStopDate) + '" data-field="abxStopDate" data-pid="' + p.id + '" style="width:150px;"></div>' +
-          '<div class="rounds-field"><label>Duration</label><input type="text" value="' + escapeHtml(p.abxDuration) + '" data-field="abxDuration" data-pid="' + p.id + '" placeholder="e.g. 7 days" style="width:110px;"></div>' +
-        '</div>' +
         roundsItemHtml(p.id, idAppropriateItem, !!today[idAppropriateItem.id], !today[idAppropriateItem.id] && !!prev[idAppropriateItem.id], p.itemNotes);
     }
 
@@ -1063,9 +1059,16 @@
         '<button type="button" class="btn small danger" data-abx-remove="' + p.id + '|' + r.id + '">×</button>' +
       '</div>';
     }).join("");
+    var addBtnHtml = p.abxRows.length < ABX_ROWS_MAX
+      ? '<button type="button" class="btn small secondary" data-abx-add="' + p.id + '">+ Add Antibiotic</button>'
+      : '<div style="font-size:11px; color:var(--text-faint);">Max ' + ABX_ROWS_MAX + ' antibiotics</div>';
     return '<div class="workup-subtitle" style="margin-top:0;">Antibiotics</div>' +
       (rowsHtml || '<div class="empty" style="padding:6px 0;">No antibiotics added yet.</div>') +
-      (p.abxRows.length < ABX_ROWS_MAX ? '<button type="button" class="btn small secondary" data-abx-add="' + p.id + '" style="margin-top:2px;">+ Add Antibiotic</button>' : '<div style="font-size:11px; color:var(--text-faint); margin-top:2px;">Max ' + ABX_ROWS_MAX + ' antibiotics</div>');
+      '<div class="rounds-head-row" style="margin-top:4px; align-items:center;">' +
+        addBtnHtml +
+        '<div class="rounds-field"><label>ASO / Stop Date</label><input type="date" value="' + escapeHtml(p.abxStopDate) + '" data-field="abxStopDate" data-pid="' + p.id + '" style="width:150px;"></div>' +
+        '<div class="rounds-field"><label>Duration</label><input type="text" value="' + escapeHtml(p.abxDuration) + '" data-field="abxDuration" data-pid="' + p.id + '" placeholder="e.g. 7 days" style="width:110px;"></div>' +
+      '</div>';
   }
 
   function buildIvPoSectionHtml(p){
