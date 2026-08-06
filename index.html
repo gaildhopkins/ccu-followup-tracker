@@ -1703,7 +1703,7 @@
       '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
     '</div>';
     html += buildPatientBlockHtml(p);
-    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
+    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "Patient Summary - " + p.name;
@@ -1837,7 +1837,7 @@
     }
     html += '</div>';
 
-    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
+    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
     return html;
   }
 
@@ -2110,7 +2110,7 @@
     if(p.tdmNextTrough) html += '<p class="print-dim" style="margin-top:6px;">Next trough due: ' + formatDateTime(p.tdmNextTrough) + '</p>';
     html += '</div>';
 
-    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
+    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "TDM Note - " + p.name;
@@ -2133,7 +2133,7 @@
       html += buildPatientBlockHtml(p);
       if(idx < ordered.length - 1) html += '<div class="print-pagebreak"></div>';
     });
-    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
+    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "Full Roster - Detailed Summary";
@@ -2217,7 +2217,7 @@
       html += '</tbody></table></div>';
     });
 
-    html += '<div class="print-footer">G. Hopkins, RPh | RVH CCU &amp; Cardiac Floor</div>';
+    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "Daily Rounds - " + todayStr();
