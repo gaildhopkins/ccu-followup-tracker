@@ -509,15 +509,13 @@
   var CV_CHECK_GROUPS = [
     { label: "HFrEF (EF ≤40%)", shortLabel: "HFrEF", toggleField: "cvHasHfref", items: [
       { id: "hfref-arni", t: "ARNI / ACEi / ARB", n: "Continued, held, or contraindicated — document why" },
-      { id: "hfref-bb", t: "Beta-blocker" },
+      { id: "hfref-bb", t: "BB" },
       { id: "hfref-mra", t: "MRA", n: "EF ≤40% + HF or DM" },
       { id: "hfref-sglt2", t: "SGLT2i" },
-      { id: "hfref-diur", t: "Diuretic optimized for euvolemia" },
     ]},
     { label: "HFpEF (EF >40%, HF)", shortLabel: "HFpEF", toggleField: "cvHasHfpef", items: [
       { id: "hfpef-sglt2", t: "SGLT2i" },
       { id: "hfpef-mra", t: "MRA if applicable" },
-      { id: "hfpef-diur", t: "Diuretic optimized for euvolemia" },
     ]},
     { label: "Atrial Fibrillation", shortLabel: "AF", toggleField: "cvHasAf", items: [
       { id: "af-oac", t: "Anticoagulation indicated & renal-dosed", n: "Assess bleeding risk (HAS-BLED or equivalent)" },
@@ -529,7 +527,7 @@
       { id: "acs-p2y12", t: "P2Y12 inhibitor" },
       { id: "acs-statin", t: "High-intensity statin" },
       { id: "acs-ace", t: "ACEi/ARB", n: "Per EF" },
-      { id: "acs-bb", t: "Beta-blocker", n: "Per EF" },
+      { id: "acs-bb", t: "BB", n: "Per EF" },
       { id: "acs-mra", t: "MRA", n: "EF <40%", showIf: function(p){ return p.cvAcsEfLt40 === "Y"; } },
     ]},
   ];
@@ -1247,7 +1245,7 @@
     if(p.workupOtherDrugCoverage === "N"){
       var coverageSourceId = "other-drugcoverage";
       if(openSourceIds.indexOf(coverageSourceId) === -1){
-        p.tasks.push({ id: uid(), text: "Verify", area: "Other", due: "", priority: "routine", done: false, sourceItem: coverageSourceId });
+        p.tasks.push({ id: uid(), text: "Drug Coverage", area: "Other", due: "", priority: "routine", done: false, sourceItem: coverageSourceId });
         added++;
       }
     }
@@ -2190,7 +2188,7 @@
 
     return '<tr>' +
       '<td>' + escapeHtml(p.name) + '<div class="print-dim" style="margin-top:2px;">Room ' + escapeHtml(p.room || "—") + '</div>' + statusCell + '</td>' +
-      '<td style="max-width:260px; word-wrap:break-word;">' + dxCell + '</td>' +
+      '<td style="max-width:170px; word-wrap:break-word;">' + dxCell + '</td>' +
       '<td class="print-focus-cell">' + focusCell + '</td>' +
       '<td>' + todoCell + '</td>' +
     '</tr>';
@@ -2213,7 +2211,7 @@
       if(!list.length) return;
       html += '<div class="print-section"><h2>' + UNIT_LABELS[unitKey] + ' (' + list.length + ')</h2>';
       html += '<table class="print-table print-rounds-table"><thead><tr>' +
-        '<th>Patient</th><th style="width:260px;">Dx</th><th>Monitoring</th><th>To Do</th>' +
+        '<th>Patient</th><th style="width:170px;">Dx</th><th>Monitoring</th><th>To Do</th>' +
       '</tr></thead><tbody>';
       list.forEach(function(p){ html += buildRoundsPrintRow(p); });
       html += '</tbody></table></div>';
