@@ -456,9 +456,9 @@
 
   // ---------------- Daily Rounds Checklist Template ----------------
   var ROUNDS_CORE_ITEMS = [
-    { id: "medrec", t: "Med rec reviewed", n: "Home med list reconciled vs current orders" },
-    { id: "vte", t: "VTE prophylaxis appropriate", n: "Check bleeding/renal contraindication; document if held" },
-    { id: "renaldose", t: "Renal-dosed meds reviewed", n: "Adjust for current CrCl" },
+    { id: "medrec", t: "Med rec", n: "Home med list reconciled vs current orders" },
+    { id: "vte", t: "VTE prophylaxis", n: "Check bleeding/renal contraindication; document if held" },
+    { id: "renaldose", t: "Review renal dosing", n: "Adjust for current CrCl" },
   ];
 
   var IV_PO_DRUG_CLASSES = ["", "PPI/H2 blocker", "Antiepileptic", "Antibiotic", "Analgesic/Opioid", "Antihypertensive", "Thyroid replacement", "Psychiatric medication", "Other"];
@@ -507,24 +507,24 @@
   // AF checklist — only the conditions actually present are visible.
   var CV_CONDITION_OPTIONS = ["", "Y", "N"];
   var CV_CHECK_GROUPS = [
-    { label: "HFrEF (EF ≤40%)", toggleField: "cvHasHfref", items: [
+    { label: "HFrEF (EF ≤40%)", shortLabel: "HFrEF", toggleField: "cvHasHfref", items: [
       { id: "hfref-arni", t: "ARNI / ACEi / ARB", n: "Continued, held, or contraindicated — document why" },
       { id: "hfref-bb", t: "Beta-blocker" },
       { id: "hfref-mra", t: "MRA", n: "EF ≤40% + HF or DM" },
       { id: "hfref-sglt2", t: "SGLT2i" },
       { id: "hfref-diur", t: "Diuretic optimized for euvolemia" },
     ]},
-    { label: "HFpEF (EF >40%, HF)", toggleField: "cvHasHfpef", items: [
+    { label: "HFpEF (EF >40%, HF)", shortLabel: "HFpEF", toggleField: "cvHasHfpef", items: [
       { id: "hfpef-sglt2", t: "SGLT2i" },
       { id: "hfpef-mra", t: "MRA if applicable" },
       { id: "hfpef-diur", t: "Diuretic optimized for euvolemia" },
     ]},
-    { label: "Atrial Fibrillation", toggleField: "cvHasAf", items: [
+    { label: "Atrial Fibrillation", shortLabel: "AF", toggleField: "cvHasAf", items: [
       { id: "af-oac", t: "Anticoagulation indicated & renal-dosed", n: "Assess bleeding risk (HAS-BLED or equivalent)" },
       { id: "af-rate", t: "Rate / rhythm control plan clear" },
     ]},
     // EF < 40%? gate determines whether MRA is added to the bottom of the standard ACS med list.
-    { label: "ACS", toggleField: "cvHasAcs", extraField: { label: "EF < 40%?", field: "cvAcsEfLt40", options: CV_CONDITION_OPTIONS }, items: [
+    { label: "ACS", shortLabel: "ACS", toggleField: "cvHasAcs", extraField: { label: "EF < 40%?", field: "cvAcsEfLt40", options: CV_CONDITION_OPTIONS }, items: [
       { id: "acs-asa", t: "ASA" },
       { id: "acs-p2y12", t: "P2Y12 inhibitor" },
       { id: "acs-statin", t: "High-intensity statin" },
@@ -1178,7 +1178,7 @@
       if(p[g.toggleField] !== "Y") return;
       g.items.forEach(function(item){
         if(item.showIf && !item.showIf(p)) return;
-        candidates.push({ item: item, area: "Cardiovascular", checked: !!today[item.id], followUpWhenChecked: false });
+        candidates.push({ item: item, area: g.shortLabel, checked: !!today[item.id], followUpWhenChecked: false });
       });
     });
     if(p.workupIdOnAbx === "Y"){
@@ -1193,7 +1193,9 @@
       if(!wantsFollowUp) return;
       if(openSourceIds.indexOf(c.item.id) !== -1) return;
       var note = p.itemNotes[c.item.id];
-      var text = c.item.t + (note ? " — " + note : "");
+      // IV Critical Care Medications are checked-triggered (a running drip needs reassessment) —
+      // for those, list just the drug name without the dose note; everything else pulls its note in.
+      var text = c.item.t + (!c.followUpWhenChecked && note ? " — " + note : "");
       p.tasks.push({ id: uid(), text: text, area: c.area, due: "", priority: "routine", done: false, sourceItem: c.item.id });
       added++;
     });
@@ -1206,6 +1208,18 @@
         var label = c.site || "Culture";
         var text = label + " culture pending" + (c.organism ? " (organism: " + c.organism + ")" : "");
         p.tasks.push({ id: uid(), text: text, area: "Antibiotics", due: "", priority: "routine", done: false, sourceItem: sourceId });
+        added++;
+      });
+    }
+
+    // An antibiotic with no ASO/stop date set yet needs one — list it by name.
+    if(p.abxRows && !p.abxStopDate){
+      p.abxRows.forEach(function(r){
+        var label = r.drug === "Other" ? (r.otherText || "Other") : r.drug;
+        if(!label) return;
+        var sourceId = "abx-aso-" + r.id;
+        if(openSourceIds.indexOf(sourceId) !== -1) return;
+        p.tasks.push({ id: uid(), text: label, area: "Antibiotics", due: "", priority: "routine", done: false, sourceItem: sourceId });
         added++;
       });
     }
@@ -1226,14 +1240,14 @@
     if(p.workupOtherSmoker === "Y" && p.workupOtherNrt === "N"){
       var nrtSourceId = "other-nrt";
       if(openSourceIds.indexOf(nrtSourceId) === -1){
-        p.tasks.push({ id: uid(), text: "NRT ordered for smoker", area: "Other", due: "", priority: "routine", done: false, sourceItem: nrtSourceId });
+        p.tasks.push({ id: uid(), text: "NRT", area: "Other", due: "", priority: "routine", done: false, sourceItem: nrtSourceId });
         added++;
       }
     }
     if(p.workupOtherDrugCoverage === "N"){
       var coverageSourceId = "other-drugcoverage";
       if(openSourceIds.indexOf(coverageSourceId) === -1){
-        p.tasks.push({ id: uid(), text: "Confirm drug coverage / assistance program", area: "Other", due: "", priority: "routine", done: false, sourceItem: coverageSourceId });
+        p.tasks.push({ id: uid(), text: "Verify", area: "Other", due: "", priority: "routine", done: false, sourceItem: coverageSourceId });
         added++;
       }
     }
@@ -1548,7 +1562,7 @@
     if(giBits.length) lines.push({ label: "GI", value: giBits.join(" · ") });
 
     var guBits = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    if(p.coreChecks.renaldose) guBits.push("✓ Renal-dosed meds reviewed");
+    if(p.coreChecks.renaldose) guBits.push("✓ Review renal dosing");
     if(guBits.length) lines.push({ label: "GU", value: guBits.join(" · ") });
 
     var abxBits = formattedAbxRows(p);
@@ -1763,7 +1777,7 @@
     html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var guLines = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    guLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Renal-dosed meds reviewed");
+    guLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Review renal dosing");
     html += bulletSection("GU", guLines);
 
     var idLines = formattedAbxRows(p);
@@ -1811,7 +1825,7 @@
     if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
     html += bulletSection("Other", otherLines);
 
-    html += bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec reviewed"]);
+    html += bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec"]);
     html += textSection("Home Medications / Medication Reconciliation", p.workupHomeMeds);
 
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
@@ -1903,7 +1917,7 @@
     bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var guLinesText = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    guLinesText.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Renal-dosed meds reviewed");
+    guLinesText.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Review renal dosing");
     bulletSection("GU", guLinesText);
 
     var idLines = formattedAbxRows(p);
@@ -1951,7 +1965,7 @@
     if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
     bulletSection("Other", otherLines);
 
-    bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec reviewed"]);
+    bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec"]);
     textSection("Home Medications / Medication Reconciliation", p.workupHomeMeds);
 
     out.push("FOLLOW-UP ITEMS");
@@ -2128,6 +2142,31 @@
     window.print();
   }
 
+  // Groups open follow-up tasks by area for the printed rounds report, so items generated from
+  // the same clinical section (e.g. AF) appear together under one heading rather than as flat
+  // lines each repeating the area. Each item gets a ☐ so it can be checked off on the printed
+  // page during rounds and reconciled against the app afterward.
+  function buildTodoCellHtml(openTasks){
+    if(!openTasks.length) return '<span class="print-dim">—</span>';
+    var groups = [];
+    var groupIndex = {};
+    openTasks.forEach(function(t){
+      var key = t.area || "";
+      if(!(key in groupIndex)){
+        groupIndex[key] = groups.length;
+        groups.push({ area: t.area, tasks: [] });
+      }
+      groups[groupIndex[key]].tasks.push(t);
+    });
+    return groups.map(function(g){
+      var itemsHtml = g.tasks.map(function(t){
+        return '<div>☐ ' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(' + formatDue(t.due) + ')</span>' : '') + '</div>';
+      }).join('');
+      if(!g.area) return itemsHtml;
+      return '<div style="margin-bottom:3px;"><strong>' + escapeHtml(g.area) + '</strong>' + itemsHtml + '</div>';
+    }).join('');
+  }
+
   function buildRoundsPrintRow(p){
     var medRec = !!p.coreChecks.medrec;
     var vte = !!p.coreChecks.vte;
@@ -2141,9 +2180,7 @@
     var focusCell = focusParts.join("");
     if(!focusCell) focusCell = '<span class="print-dim">—</span>';
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
-    var todoCell = openTasks.length
-      ? openTasks.map(function(t){ return escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(' + formatDue(t.due) + ')</span>' : ''); }).join('<br>')
-      : '<span class="print-dim">—</span>';
+    var todoCell = buildTodoCellHtml(openTasks);
 
     var statusCell = '<div class="print-status-stack">' +
       '<span class="' + (medRec ? "print-status-ok" : "") + '">' + (medRec ? "✓" : "☐") + ' Med Rec</span>' +
