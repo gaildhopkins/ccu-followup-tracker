@@ -368,13 +368,14 @@
       ["workupPresenting", "workupPmh", "workupInfusionsOther",
         "workupNeuroGeneral", "workupNeuroRass", "workupNeuroGcs", "workupNeuroLimb", "workupNeuroImaging", "workupNeuroPlan",
         "workupCvRhythm", "workupCvRate", "workupCvBp", "workupCvEdemaGrade", "workupCvEdemaSite",
-        "workupCvTni", "workupCvBnp", "workupCvLdl", "workupCvEcho", "workupCvEcg", "workupCvAngio",
+        "workupCvTni", "workupCvBnp", "workupCvLdl", "workupCvLactate", "workupCvEcho", "workupCvEcg", "workupCvAngio",
         "workupRespCxr", "workupRespChestCt", "workupRespChestTube",
-        "workupGiBowelMovement", "workupGiFms", "workupGiRoute", "workupGiImaging",
+        "workupGiBowelMovement", "workupGiFms", "workupGiRoute", "workupGiLabs", "workupGiImaging",
         "workupGuBaselineCr", "workupGuUrineOutput", "workupGuCurrentCr",
         "workupGuHd", "workupGuHdSchedule", "workupGuPd", "workupGuFoleyDate",
         "workupIdWbc", "workupIdTemp", "workupIdCrp", "workupIdProcalcitonin", "workupIdImaging", "workupGlycemicPocTrend",
         "workupHemeCurrent", "workupHemeBaseline", "workupHemeIron", "workupHemePlt", "workupHemeTreatment",
+        "workupOtherSmoker", "workupOtherNrt", "workupOtherDrugCoverage",
         "workupHomeMeds"].forEach(function(f){ if(p[f] === undefined) p[f] = ""; });
 
       // Migrate legacy single free-text workup fields (from before the head-to-toe consolidation
@@ -551,19 +552,20 @@
   // directly in its head-to-toe location here — Core Review and IV→PO Conversion are the only other
   // sections on the card. Unit grouping (CCU vs Cardiac Floor) and EF% are CCU-specific and unaffected.
   var CV_EDEMA_GRADES = ["", "None", "1+", "2+", "3+"];
-  // Rendered as two rows: the first 5 (vitals + edema) then the remaining 6 (labs/imaging).
+  // Rendered as two rows: the first 5 (rhythm/rate/vitals/edema) then the remaining 7 (labs/imaging).
   var WORKUP_CV_FIELDS = [
-    { label: "Rate", field: "workupCvRate" },
     { label: "Rhythm", field: "workupCvRhythm" },
+    { label: "Rate", field: "workupCvRate" },
     { label: "BP", field: "workupCvBp" },
     { label: "Edema", field: "workupCvEdemaGrade", options: CV_EDEMA_GRADES },
     { label: "Edema Site", field: "workupCvEdemaSite" },
     { label: "TnI", field: "workupCvTni" },
-    { label: "NTproBNP", field: "workupCvBnp" },
     { label: "LDL", field: "workupCvLdl" },
+    { label: "Lactate", field: "workupCvLactate" },
+    { label: "BNP", field: "workupCvBnp" },
     { label: "Echo", field: "workupCvEcho" },
-    { label: "ECG", field: "workupCvEcg" },
     { label: "Angio", field: "workupCvAngio" },
+    { label: "ECG", field: "workupCvEcg" },
   ];
   var WORKUP_NEURO_FIELDS = [
     { label: "General", field: "workupNeuroGeneral" },
@@ -573,13 +575,17 @@
     { label: "Imaging", field: "workupNeuroImaging" },
     { label: "Plan", field: "workupNeuroPlan" },
   ];
-  var GI_FMS_OPTIONS = ["", "Y", "N"];
   var GI_MED_ROUTES = ["", "PO whole", "PO crush", "Weighted NG", "Large Bore NG", "OG", "PEG/J"];
   var WORKUP_GI_FIELDS = [
-    { label: "Bowel Movement", field: "workupGiBowelMovement" },
-    { label: "FMS", field: "workupGiFms", options: GI_FMS_OPTIONS },
     { label: "Med Route", field: "workupGiRoute", options: GI_MED_ROUTES },
+    { label: "Labs", field: "workupGiLabs", placeholder: "LFTs" },
+    { label: "BM", field: "workupGiBowelMovement" },
     { label: "Imaging", field: "workupGiImaging" },
+  ];
+  var OTHER_YN_OPTIONS = ["", "Y", "N"];
+  var WORKUP_OTHER_FIELDS = [
+    { label: "Smoker", field: "workupOtherSmoker", options: OTHER_YN_OPTIONS },
+    { label: "NRT Ordered", field: "workupOtherNrt", options: OTHER_YN_OPTIONS, showIf: function(p){ return p.workupOtherSmoker === "Y"; } },
   ];
   var GU_YN_OPTIONS = ["", "Y", "N"];
   var ID_ONABX_OPTIONS = ["", "Y", "N"];
@@ -629,6 +635,12 @@
       return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
     });
   }
+  // Auto-generated follow-ups store their originating area (e.g. "Core Review") separately from
+  // the item text so the compact Daily Rounds report can show just the item — everywhere else
+  // (on-screen task list, Patient Summary PDF, Workup Note) reconstructs "Area: item" as before.
+  function taskDisplayText(t){
+    return (t.area ? t.area + ": " : "") + t.text;
+  }
 
   // ================= PATIENT LIST (Daily Rounds + Follow-Up) =================
   var openPatients = {};
@@ -656,14 +668,15 @@
       workupPresenting: "", workupPmh: "", workupInfusionsOther: "",
       workupNeuroGeneral: "", workupNeuroRass: "", workupNeuroGcs: "", workupNeuroLimb: "", workupNeuroImaging: "", workupNeuroPlan: "",
       workupCvRhythm: "", workupCvRate: "", workupCvBp: "", workupCvEdemaGrade: "", workupCvEdemaSite: "",
-      workupCvTni: "", workupCvBnp: "", workupCvLdl: "", workupCvEcho: "", workupCvEcg: "", workupCvAngio: "",
+      workupCvTni: "", workupCvBnp: "", workupCvLdl: "", workupCvLactate: "", workupCvEcho: "", workupCvEcg: "", workupCvAngio: "",
       cvHasHfref: "", cvHasHfpef: "", cvHasAf: "", cvHasAcs: "",
       workupRespCxr: "", workupRespChestCt: "", workupRespChestTube: "",
-      workupGiBowelMovement: "", workupGiFms: "", workupGiRoute: "", workupGiImaging: "",
+      workupGiBowelMovement: "", workupGiFms: "", workupGiRoute: "", workupGiLabs: "", workupGiImaging: "",
       workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuCurrentCr: "",
       workupGuHd: "", workupGuHdSchedule: "", workupGuPd: "", workupGuFoleyDate: "",
       workupIdOnAbx: "", workupIdWbc: "", workupIdTemp: "", workupIdCrp: "", workupIdProcalcitonin: "", workupIdImaging: "", workupGlycemicPocTrend: "",
       workupHemeCurrent: "", workupHemeBaseline: "", workupHemeIron: "", workupHemePlt: "", workupHemeTreatment: "",
+      workupOtherSmoker: "", workupOtherNrt: "", workupOtherDrugCoverage: "",
       workupHomeMeds: ""
     };
     state.patients.unshift(p);
@@ -899,9 +912,9 @@
       '</div>';
     }
 
-    html += '<div class="workup-subtitle">Neurological</div>' + workupFieldsRowHtml(p, WORKUP_NEURO_FIELDS);
+    html += '<div class="workup-subtitle">Neuro</div>' + workupFieldsRowHtml(p, WORKUP_NEURO_FIELDS);
 
-    html += '<div class="workup-subtitle">Cardiovascular</div>' +
+    html += '<div class="workup-subtitle">CV</div>' +
       workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(0, 5)) +
       workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(5)) +
       '<div class="iv-groups-row" style="margin-top:6px;">' +
@@ -919,7 +932,7 @@
         }).join("") +
       '</div>';
 
-    html += '<div class="workup-subtitle">Respiratory</div>' +
+    html += '<div class="workup-subtitle">Resp</div>' +
       '<div class="rounds-head-row">' +
         '<div class="rounds-field"><label>Mode</label><select data-field="respMode" data-pid="' + p.id + '">' +
           RESP_MODES.map(function(m){ return '<option value="' + escapeHtml(m) + '"' + (p.respMode === m ? " selected" : "") + '>' + (m || "— Select —") + '</option>'; }).join("") +
@@ -931,14 +944,14 @@
       '</div>' +
       workupFieldsRowHtml(p, [{ label: "CXR", field: "workupRespCxr" }, { label: "Chest CT", field: "workupRespChestCt" }, { label: "Chest Tube", field: "workupRespChestTube" }]);
 
-    html += '<div class="workup-subtitle">Gastrointestinal</div>' + workupFieldsRowHtml(p, WORKUP_GI_FIELDS);
+    html += '<div class="workup-subtitle">GI</div>' + workupFieldsRowHtml(p, WORKUP_GI_FIELDS);
 
-    html += '<div class="workup-subtitle">Genitourinary</div>' +
+    html += '<div class="workup-subtitle">GU</div>' +
       workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(0, 7)) +
       workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(7));
 
     var idAppropriateItem = ABX_ITEMS[0];
-    html += '<div class="workup-subtitle">Infection / ID</div>' +
+    html += '<div class="workup-subtitle">ID</div>' +
       '<div class="rounds-head-row">' +
         '<div class="rounds-field"><label>On Antibiotic?</label><select data-field="workupIdOnAbx" data-pid="' + p.id + '">' +
           ID_ONABX_OPTIONS.map(function(o){ return '<option value="' + o + '"' + (p.workupIdOnAbx === o ? " selected" : "") + '>' + (o || "— Select —") + '</option>'; }).join("") +
@@ -972,20 +985,24 @@
         '<button type="button" class="btn small secondary" data-tdm-note="' + p.id + '" style="margin:8px 0;">Generate TDM Consult Note</button>';
     }
 
-    html += '<div class="workup-subtitle">Glycemic</div>' +
+    html += '<div class="workup-subtitle">POC</div>' +
       '<div class="rounds-head-row">' +
         '<div class="rounds-field"><label>POC Trend</label><input type="text" value="' + escapeHtml(p.workupGlycemicPocTrend) + '" data-field="workupGlycemicPocTrend" data-pid="' + p.id + '" style="width:170px;"></div>' +
         '<div class="rounds-field"><label>A1C</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:65px;"></div>' +
         '<div class="rounds-field" style="flex:1; min-width:180px;"><label>Therapy</label><input type="text" value="' + escapeHtml(p.a1cChanges) + '" data-field="a1cChanges" data-pid="' + p.id + '" style="width:100%;"></div>' +
       '</div>';
 
-    html += '<div class="workup-subtitle">Hematology</div>' + workupFieldsRowHtml(p, WORKUP_HEME_FIELDS);
+    html += '<div class="workup-subtitle">Hgb</div>' + workupFieldsRowHtml(p, WORKUP_HEME_FIELDS);
 
     var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
     html += '<div class="workup-subtitle">Safety</div>' +
       safetyItems.map(function(item){
         return roundsItemHtml(p.id, item, !!p.coreChecks[item.id], false, p.itemNotes, "-safety");
       }).join("");
+
+    html += '<div class="workup-subtitle">Other</div>' +
+      workupFieldsRowHtml(p, WORKUP_OTHER_FIELDS) +
+      workupFieldsRowHtml(p, [{ label: "Drug Coverage", field: "workupOtherDrugCoverage", options: OTHER_YN_OPTIONS }]);
 
     html += workupTextareaHtml(p, "Home Medications / Medication Reconciliation", "workupHomeMeds");
 
@@ -1072,9 +1089,10 @@
   function taskRowHtml(pid, t){
     var status = t.done ? "" : dueStatus(t.due);
     var dueCls = status === "overdue" ? "overdue" : (status === "today" ? "today" : "");
+    var displayText = taskDisplayText(t);
     return '<div class="task-row">' +
       '<input type="checkbox" class="task-check" data-pid="' + pid + '" data-tid="' + t.id + '" ' + (t.done ? "checked" : "") + '>' +
-      '<div class="task-text ' + (t.done ? "done" : "") + '">' + escapeHtml(t.text) +
+      '<div class="task-text ' + (t.done ? "done" : "") + '">' + escapeHtml(displayText) +
         (t.priority === "urgent" ? ' <span class="task-priority urgent">Urgent</span>' : '') +
       '</div>' +
       '<div class="task-due ' + dueCls + '">' + formatDue(t.due) + '</div>' +
@@ -1145,8 +1163,8 @@
       if(!wantsFollowUp) return;
       if(openSourceIds.indexOf(c.item.id) !== -1) return;
       var note = p.itemNotes[c.item.id];
-      var text = c.area + ": " + c.item.t + (note ? " — " + note : "");
-      p.tasks.push({ id: uid(), text: text, due: "", priority: "routine", done: false, sourceItem: c.item.id });
+      var text = c.item.t + (note ? " — " + note : "");
+      p.tasks.push({ id: uid(), text: text, area: c.area, due: "", priority: "routine", done: false, sourceItem: c.item.id });
       added++;
     });
 
@@ -1156,8 +1174,8 @@
         var sourceId = "cx-" + c.id;
         if(openSourceIds.indexOf(sourceId) !== -1) return;
         var label = c.site || "Culture";
-        var text = "Antibiotics: " + label + " culture pending" + (c.organism ? " (organism: " + c.organism + ")" : "");
-        p.tasks.push({ id: uid(), text: text, due: "", priority: "routine", done: false, sourceItem: sourceId });
+        var text = label + " culture pending" + (c.organism ? " (organism: " + c.organism + ")" : "");
+        p.tasks.push({ id: uid(), text: text, area: "Antibiotics", due: "", priority: "routine", done: false, sourceItem: sourceId });
         added++;
       });
     }
@@ -1168,10 +1186,26 @@
         var sourceId = "ivpo-" + r.id;
         if(openSourceIds.indexOf(sourceId) !== -1) return;
         var label = r.drugClass === "Other" ? (r.otherText || "Other") : r.drugClass;
-        var text = "IV → PO Conversion: " + label + (r.note ? " — " + r.note : "");
-        p.tasks.push({ id: uid(), text: text, due: "", priority: "routine", done: false, sourceItem: sourceId });
+        var text = label + (r.note ? " — " + r.note : "");
+        p.tasks.push({ id: uid(), text: text, area: "IV → PO Conversion", due: "", priority: "routine", done: false, sourceItem: sourceId });
         added++;
       });
+    }
+
+    // "Other" safety-net follow-ups: a smoker without NRT ordered, or unconfirmed drug coverage.
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt === "N"){
+      var nrtSourceId = "other-nrt";
+      if(openSourceIds.indexOf(nrtSourceId) === -1){
+        p.tasks.push({ id: uid(), text: "NRT ordered for smoker", area: "Other", due: "", priority: "routine", done: false, sourceItem: nrtSourceId });
+        added++;
+      }
+    }
+    if(p.workupOtherDrugCoverage === "N"){
+      var coverageSourceId = "other-drugcoverage";
+      if(openSourceIds.indexOf(coverageSourceId) === -1){
+        p.tasks.push({ id: uid(), text: "Confirm drug coverage / assistance program", area: "Other", due: "", priority: "routine", done: false, sourceItem: coverageSourceId });
+        added++;
+      }
     }
 
     if(added === 0){
@@ -1519,10 +1553,16 @@
     if(p.workupGlycemicPocTrend) glycemicBits.push("POC " + p.workupGlycemicPocTrend);
     if(p.a1cLevel) glycemicBits.push("A1C " + p.a1cLevel);
     if(p.a1cChanges) glycemicBits.push("Therapy: " + p.a1cChanges);
-    if(glycemicBits.length) lines.push({ label: "Glycemic", value: glycemicBits.join(" · ") });
+    if(glycemicBits.length) lines.push({ label: "POC", value: glycemicBits.join(" · ") });
 
     var hemeBits = WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    if(hemeBits.length) lines.push({ label: "Heme", value: hemeBits.join(" · ") });
+    if(hemeBits.length) lines.push({ label: "Hgb", value: hemeBits.join(" · ") });
+
+    var otherBits = [];
+    if(p.workupOtherSmoker) otherBits.push("Smoker: " + p.workupOtherSmoker);
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherBits.push("NRT Ordered: " + p.workupOtherNrt);
+    if(p.workupOtherDrugCoverage) otherBits.push("Drug Coverage: " + p.workupOtherDrugCoverage);
+    if(otherBits.length) lines.push({ label: "Other", value: otherBits.join(" · ") });
 
     return lines;
   }
@@ -1584,7 +1624,7 @@
         var status = dueStatus(t.due);
         var statusLabel = status === "overdue" ? "Overdue" : (status === "today" ? "Due Today" : (status === "ok" ? "Upcoming" : "—"));
         html += '<tr>' +
-          '<td>' + escapeHtml(t.text) + '</td>' +
+          '<td>' + escapeHtml(taskDisplayText(t)) + '</td>' +
           '<td>' + formatDue(t.due) + '</td>' +
           '<td>' + (t.priority === "urgent" ? "Urgent" : "Routine") + '</td>' +
           '<td class="print-status-' + status + '">' + statusLabel + '</td>' +
@@ -1600,7 +1640,7 @@
     if(doneTasks.length){
       html += '<ul class="print-list">';
       doneTasks.forEach(function(t){
-        html += '<li>✓ ' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(was due ' + formatDue(t.due) + ')</span>' : '') + '</li>';
+        html += '<li>✓ ' + escapeHtml(taskDisplayText(t)) + (t.due ? ' <span class="print-dim">(was due ' + formatDue(t.due) + ')</span>' : '') + '</li>';
       });
       html += '</ul>';
     } else {
@@ -1672,11 +1712,11 @@
     if(p.workupInfusionsOther) infusionLines.push("Other: " + p.workupInfusionsOther);
     html += bulletSection("Infusions", infusionLines);
 
-    html += bulletSection("Neurological", WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    html += bulletSection("Neuro", WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var cvLines = WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
     cvLines = cvLines.concat(CV_CHECK_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []));
-    html += bulletSection("Cardiovascular", cvLines);
+    html += bulletSection("CV", cvLines);
 
     var respLines = [];
     if(p.respMode) respLines.push("Mode: " + p.respMode);
@@ -1687,11 +1727,11 @@
     if(p.workupRespCxr) respLines.push("CXR: " + p.workupRespCxr);
     if(p.workupRespChestCt) respLines.push("Chest CT: " + p.workupRespChestCt);
     if(p.workupRespChestTube) respLines.push("Chest Tube: " + p.workupRespChestTube);
-    html += bulletSection("Respiratory", respLines);
+    html += bulletSection("Resp", respLines);
 
-    html += bulletSection("Gastrointestinal", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    html += bulletSection("Genitourinary", WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    html += bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var idLines = formattedAbxRows(p);
     if(p.abxDuration) idLines.push("Duration: " + p.abxDuration);
@@ -1716,18 +1756,24 @@
     if(p.workupIdCrp) idLines.push("CRP: " + p.workupIdCrp);
     if(p.workupIdProcalcitonin) idLines.push("Procalcitonin: " + p.workupIdProcalcitonin);
     if(p.workupIdImaging) idLines.push("Imaging: " + p.workupIdImaging);
-    html += bulletSection("Infection / ID", idLines);
+    html += bulletSection("ID", idLines);
 
     var glycemicLines = [];
     if(p.workupGlycemicPocTrend) glycemicLines.push("POC Trend: " + p.workupGlycemicPocTrend);
     if(p.a1cLevel) glycemicLines.push("A1C: " + p.a1cLevel);
     if(p.a1cChanges) glycemicLines.push("Therapy: " + p.a1cChanges);
-    html += bulletSection("Glycemic", glycemicLines);
+    html += bulletSection("POC", glycemicLines);
 
-    html += bulletSection("Hematology", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    html += bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
     html += bulletSection("Safety", safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
+
+    var otherLines = [];
+    if(p.workupOtherSmoker) otherLines.push("Smoker: " + p.workupOtherSmoker);
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered: " + p.workupOtherNrt);
+    if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
+    html += bulletSection("Other", otherLines);
 
     html += textSection("Home Medications / Medication Reconciliation", p.workupHomeMeds);
 
@@ -1735,7 +1781,7 @@
     html += '<div class="print-section"><h2>Follow-Up Items</h2>';
     if(openTasks.length){
       html += '<ul class="print-list">' + openTasks.map(function(t){
-        return '<li>' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(due ' + formatDue(t.due) + ')</span>' : '') + (t.priority === "urgent" ? ' <span class="print-dim">[Urgent]</span>' : '') + '</li>';
+        return '<li>' + escapeHtml(taskDisplayText(t)) + (t.due ? ' <span class="print-dim">(due ' + formatDue(t.due) + ')</span>' : '') + (t.priority === "urgent" ? ' <span class="print-dim">[Urgent]</span>' : '') + '</li>';
       }).join("") + '</ul>';
     } else {
       html += '<p class="print-empty">No open follow-up items.</p>';
@@ -1799,11 +1845,11 @@
     if(p.workupInfusionsOther) infusionLines.push("Other: " + p.workupInfusionsOther);
     bulletSection("Infusions", infusionLines);
 
-    bulletSection("Neurological", WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    bulletSection("Neuro", WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var cvLines = WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
     cvLines = cvLines.concat(CV_CHECK_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []));
-    bulletSection("Cardiovascular", cvLines);
+    bulletSection("CV", cvLines);
 
     var respLines = [];
     if(p.respMode) respLines.push("Mode: " + p.respMode);
@@ -1814,11 +1860,11 @@
     if(p.workupRespCxr) respLines.push("CXR: " + p.workupRespCxr);
     if(p.workupRespChestCt) respLines.push("Chest CT: " + p.workupRespChestCt);
     if(p.workupRespChestTube) respLines.push("Chest Tube: " + p.workupRespChestTube);
-    bulletSection("Respiratory", respLines);
+    bulletSection("Resp", respLines);
 
-    bulletSection("Gastrointestinal", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    bulletSection("Genitourinary", WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var idLines = formattedAbxRows(p);
     if(p.abxDuration) idLines.push("Duration: " + p.abxDuration);
@@ -1843,18 +1889,24 @@
     if(p.workupIdCrp) idLines.push("CRP: " + p.workupIdCrp);
     if(p.workupIdProcalcitonin) idLines.push("Procalcitonin: " + p.workupIdProcalcitonin);
     if(p.workupIdImaging) idLines.push("Imaging: " + p.workupIdImaging);
-    bulletSection("Infection / ID", idLines);
+    bulletSection("ID", idLines);
 
     var glycemicLines = [];
     if(p.workupGlycemicPocTrend) glycemicLines.push("POC Trend: " + p.workupGlycemicPocTrend);
     if(p.a1cLevel) glycemicLines.push("A1C: " + p.a1cLevel);
     if(p.a1cChanges) glycemicLines.push("Therapy: " + p.a1cChanges);
-    bulletSection("Glycemic", glycemicLines);
+    bulletSection("POC", glycemicLines);
 
-    bulletSection("Hematology", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
     bulletSection("Safety", safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
+
+    var otherLines = [];
+    if(p.workupOtherSmoker) otherLines.push("Smoker: " + p.workupOtherSmoker);
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered: " + p.workupOtherNrt);
+    if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
+    bulletSection("Other", otherLines);
 
     textSection("Home Medications / Medication Reconciliation", p.workupHomeMeds);
 
@@ -1862,7 +1914,7 @@
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
     if(openTasks.length){
       openTasks.forEach(function(t){
-        out.push("- " + t.text + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : ""));
+        out.push("- " + taskDisplayText(t) + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : ""));
       });
     } else {
       out.push("No open follow-up items.");
@@ -1920,7 +1972,7 @@
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
     if(openTasks.length){
       openTasks.forEach(function(t){
-        out.push("- " + t.text + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : ""));
+        out.push("- " + taskDisplayText(t) + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : ""));
       });
     } else {
       out.push("No open follow-up items.");
