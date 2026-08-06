@@ -365,13 +365,14 @@
         });
       }
 
+      if(p.cvAcsEfLt40 === undefined) p.cvAcsEfLt40 = "";
       ["workupPresenting", "workupPmh", "workupInfusionsOther",
         "workupNeuroGeneral", "workupNeuroRass", "workupNeuroGcs", "workupNeuroLimb", "workupNeuroImaging", "workupNeuroPlan",
-        "workupCvRhythm", "workupCvRate", "workupCvBp", "workupCvEdemaGrade", "workupCvEdemaSite",
+        "workupCvGeneral", "workupCvRhythm", "workupCvRate", "workupCvBp", "workupCvEdemaGrade", "workupCvEdemaSite",
         "workupCvTni", "workupCvBnp", "workupCvLdl", "workupCvLactate", "workupCvEcho", "workupCvEcg", "workupCvAngio",
-        "workupRespCxr", "workupRespChestCt", "workupRespChestTube",
-        "workupGiBowelMovement", "workupGiFms", "workupGiRoute", "workupGiLabs", "workupGiImaging",
-        "workupGuBaselineCr", "workupGuUrineOutput", "workupGuCurrentCr",
+        "workupRespGeneral", "workupRespCxr", "workupRespChestCt", "workupRespChestTube",
+        "workupGiGeneral", "workupGiBowelMovement", "workupGiFms", "workupGiRoute", "workupGiLabs", "workupGiImaging",
+        "workupGuGeneral", "workupGuBaselineCr", "workupGuUrineOutput", "workupGuCurrentCr",
         "workupGuHd", "workupGuHdSchedule", "workupGuPd", "workupGuFoleyDate",
         "workupIdWbc", "workupIdTemp", "workupIdCrp", "workupIdProcalcitonin", "workupIdImaging", "workupGlycemicPocTrend",
         "workupHemeCurrent", "workupHemeBaseline", "workupHemeIron", "workupHemePlt", "workupHemeTreatment",
@@ -466,7 +467,7 @@
   var CULTURE_SITES = ["", "Blood", "Urine", "Sputum", "BAL", "Wound", "Lines", "Abscess/Drain"];
   var CULTURE_STATUSES = ["Pending", "Resulted"];
   var RESP_MODES = ["", "Room Air", "NP", "Oxymask", "Optiflow", "CPAP", "BiPAP", "IMV"];
-  var TDM_AGENTS = ["", "Vancomycin", "Gentamicin", "Digoxin", "Other"];
+  var TDM_AGENTS = ["", "Carbamazepine", "Cyclosporine", "Digoxin", "Gentamicin", "Levetiracetam", "Lithium", "Phenytoin", "Tacrolimus", "Valproic Acid", "Vancomycin", "Voriconazole", "Other"];
 
   // IV Critical Care Medications — checkable items with a dose-entry field (units shown as a hint,
   // not a full protocol) for the currently running rate. The four groups render side by side as
@@ -504,6 +505,7 @@
   // head-to-toe layout with no separate switch controls. Each group has its own Y/N gate
   // (toggleField) so a patient without, say, AF doesn't show (or generate follow-ups for) the
   // AF checklist — only the conditions actually present are visible.
+  var CV_CONDITION_OPTIONS = ["", "Y", "N"];
   var CV_CHECK_GROUPS = [
     { label: "HFrEF (EF ≤40%)", toggleField: "cvHasHfref", items: [
       { id: "hfref-arni", t: "ARNI / ACEi / ARB", n: "Continued, held, or contraindicated — document why" },
@@ -521,16 +523,17 @@
       { id: "af-oac", t: "Anticoagulation indicated & renal-dosed", n: "Assess bleeding risk (HAS-BLED or equivalent)" },
       { id: "af-rate", t: "Rate / rhythm control plan clear" },
     ]},
-    { label: "ACS", toggleField: "cvHasAcs", items: [
+    // EF < 40%? gate determines whether MRA is added to the bottom of the standard ACS med list.
+    { label: "ACS", toggleField: "cvHasAcs", extraField: { label: "EF < 40%?", field: "cvAcsEfLt40", options: CV_CONDITION_OPTIONS }, items: [
       { id: "acs-asa", t: "ASA" },
       { id: "acs-p2y12", t: "P2Y12 inhibitor" },
       { id: "acs-statin", t: "High-intensity statin" },
       { id: "acs-ace", t: "ACEi/ARB", n: "Per EF" },
       { id: "acs-bb", t: "Beta-blocker", n: "Per EF" },
+      { id: "acs-mra", t: "MRA", n: "EF <40%", showIf: function(p){ return p.cvAcsEfLt40 === "Y"; } },
     ]},
   ];
   var ALL_CV_CHECK_ITEMS = CV_CHECK_GROUPS.reduce(function(acc, g){ return acc.concat(g.items); }, []);
-  var CV_CONDITION_OPTIONS = ["", "Y", "N"];
 
   var ABX_ITEMS = [
     { id: "abx-appropriate", t: "Spectrum / indication still appropriate", n: "De-escalate per culture results when available" },
@@ -552,8 +555,9 @@
   // directly in its head-to-toe location here — Core Review and IV→PO Conversion are the only other
   // sections on the card. Unit grouping (CCU vs Cardiac Floor) and EF% are CCU-specific and unaffected.
   var CV_EDEMA_GRADES = ["", "None", "1+", "2+", "3+"];
-  // Rendered as two rows: the first 5 (rhythm/rate/vitals/edema) then the remaining 7 (labs/imaging).
+  // Rendered as two rows: the first 6 (general/rhythm/rate/vitals/edema) then the remaining 7 (labs/imaging).
   var WORKUP_CV_FIELDS = [
+    { label: "General", field: "workupCvGeneral" },
     { label: "Rhythm", field: "workupCvRhythm" },
     { label: "Rate", field: "workupCvRate" },
     { label: "BP", field: "workupCvBp" },
@@ -577,6 +581,7 @@
   ];
   var GI_MED_ROUTES = ["", "PO whole", "PO crush", "Weighted NG", "Large Bore NG", "OG", "PEG/J"];
   var WORKUP_GI_FIELDS = [
+    { label: "General", field: "workupGiGeneral" },
     { label: "Med Route", field: "workupGiRoute", options: GI_MED_ROUTES },
     { label: "Labs", field: "workupGiLabs", placeholder: "LFTs" },
     { label: "BM", field: "workupGiBowelMovement" },
@@ -590,9 +595,10 @@
   var GU_YN_OPTIONS = ["", "Y", "N"];
   var ID_ONABX_OPTIONS = ["", "Y", "N"];
   var GU_HD_SCHEDULE_OPTIONS = ["", "MWF", "TTS", "Daily R/A"];
-  // Rendered as two rows: the first 7 (Cr/output/dialysis) then the remaining 2 (foley/imaging).
+  // Rendered as two rows: the first 8 (general/Cr/output/dialysis) then the remaining 2 (foley/imaging).
   // Schedule only shows once Hemodialysis is set to Y.
   var WORKUP_GU_FIELDS = [
+    { label: "General", field: "workupGuGeneral" },
     { label: "Current Cr", field: "workupGuCurrentCr" },
     { label: "Baseline Cr", field: "workupGuBaselineCr" },
     { label: "CrCl", field: "crcl" },
@@ -667,12 +673,12 @@
       infusionsActive: false,
       workupPresenting: "", workupPmh: "", workupInfusionsOther: "",
       workupNeuroGeneral: "", workupNeuroRass: "", workupNeuroGcs: "", workupNeuroLimb: "", workupNeuroImaging: "", workupNeuroPlan: "",
-      workupCvRhythm: "", workupCvRate: "", workupCvBp: "", workupCvEdemaGrade: "", workupCvEdemaSite: "",
+      workupCvGeneral: "", workupCvRhythm: "", workupCvRate: "", workupCvBp: "", workupCvEdemaGrade: "", workupCvEdemaSite: "",
       workupCvTni: "", workupCvBnp: "", workupCvLdl: "", workupCvLactate: "", workupCvEcho: "", workupCvEcg: "", workupCvAngio: "",
-      cvHasHfref: "", cvHasHfpef: "", cvHasAf: "", cvHasAcs: "",
-      workupRespCxr: "", workupRespChestCt: "", workupRespChestTube: "",
-      workupGiBowelMovement: "", workupGiFms: "", workupGiRoute: "", workupGiLabs: "", workupGiImaging: "",
-      workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuCurrentCr: "",
+      cvHasHfref: "", cvHasHfpef: "", cvHasAf: "", cvHasAcs: "", cvAcsEfLt40: "",
+      workupRespGeneral: "", workupRespCxr: "", workupRespChestCt: "", workupRespChestTube: "",
+      workupGiGeneral: "", workupGiBowelMovement: "", workupGiFms: "", workupGiRoute: "", workupGiLabs: "", workupGiImaging: "",
+      workupGuGeneral: "", workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuCurrentCr: "",
       workupGuHd: "", workupGuHdSchedule: "", workupGuPd: "", workupGuFoleyDate: "",
       workupIdOnAbx: "", workupIdWbc: "", workupIdTemp: "", workupIdCrp: "", workupIdProcalcitonin: "", workupIdImaging: "", workupGlycemicPocTrend: "",
       workupHemeCurrent: "", workupHemeBaseline: "", workupHemeIron: "", workupHemePlt: "", workupHemeTreatment: "",
@@ -874,7 +880,7 @@
     '</div>';
   }
   function checklistItemsHtml(p, items, today, prev){
-    return items.map(function(item){
+    return items.filter(function(item){ return !item.showIf || item.showIf(p); }).map(function(item){
       var checked = !!today[item.id];
       return roundsItemHtml(p.id, item, checked, !checked && !!prev[item.id], p.itemNotes);
     }).join("");
@@ -915,11 +921,18 @@
     html += '<div class="workup-subtitle">Neuro</div>' + workupFieldsRowHtml(p, WORKUP_NEURO_FIELDS);
 
     html += '<div class="workup-subtitle">CV</div>' +
-      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(0, 5)) +
-      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(5)) +
+      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(0, 6)) +
+      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(6)) +
       '<div class="iv-groups-row" style="margin-top:6px;">' +
         CV_CHECK_GROUPS.map(function(g){
           var has = p[g.toggleField] === "Y";
+          var extraFieldHtml = "";
+          if(has && g.extraField){
+            var ef = g.extraField;
+            extraFieldHtml = '<div class="rounds-field" style="margin:4px 0;"><label>' + escapeHtml(ef.label) + '</label><select data-field="' + ef.field + '" data-pid="' + p.id + '" style="font-size:12px; padding:3px 6px;">' +
+              ef.options.map(function(o){ return '<option value="' + o + '"' + (p[ef.field] === o ? " selected" : "") + '>' + (o || "— Select —") + '</option>'; }).join("") +
+            '</select></div>';
+          }
           return '<div>' +
             '<div class="workup-subtitle" style="margin-top:0; text-transform:none; font-weight:600; color:var(--text); display:flex; align-items:center; justify-content:space-between; gap:6px;">' +
               '<span>' + escapeHtml(g.label) + '</span>' +
@@ -927,6 +940,7 @@
                 CV_CONDITION_OPTIONS.map(function(o){ return '<option value="' + o + '"' + (p[g.toggleField] === o ? " selected" : "") + '>' + (o || "—") + '</option>'; }).join("") +
               '</select>' +
             '</div>' +
+            extraFieldHtml +
             (has ? checklistItemsHtml(p, g.items, today, prev) : '') +
           '</div>';
         }).join("") +
@@ -934,6 +948,7 @@
 
     html += '<div class="workup-subtitle">Resp</div>' +
       '<div class="rounds-head-row">' +
+        '<div class="rounds-field"><label>General</label><input type="text" value="' + escapeHtml(p.workupRespGeneral) + '" data-field="workupRespGeneral" data-pid="' + p.id + '" style="width:150px;"></div>' +
         '<div class="rounds-field"><label>Mode</label><select data-field="respMode" data-pid="' + p.id + '">' +
           RESP_MODES.map(function(m){ return '<option value="' + escapeHtml(m) + '"' + (p.respMode === m ? " selected" : "") + '>' + (m || "— Select —") + '</option>'; }).join("") +
         '</select></div>' +
@@ -946,9 +961,11 @@
 
     html += '<div class="workup-subtitle">GI</div>' + workupFieldsRowHtml(p, WORKUP_GI_FIELDS);
 
+    var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
     html += '<div class="workup-subtitle">GU</div>' +
-      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(0, 7)) +
-      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(7));
+      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(0, 8)) +
+      roundsItemHtml(p.id, renaldoseItem, !!p.coreChecks[renaldoseItem.id], false, p.itemNotes, "-gu") +
+      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(8));
 
     var idAppropriateItem = ABX_ITEMS[0];
     html += '<div class="workup-subtitle">ID</div>' +
@@ -972,17 +989,7 @@
           '<div class="rounds-field"><label>ASO / Stop Date</label><input type="date" value="' + escapeHtml(p.abxStopDate) + '" data-field="abxStopDate" data-pid="' + p.id + '" style="width:150px;"></div>' +
           '<div class="rounds-field"><label>Duration</label><input type="text" value="' + escapeHtml(p.abxDuration) + '" data-field="abxDuration" data-pid="' + p.id + '" placeholder="e.g. 7 days" style="width:110px;"></div>' +
         '</div>' +
-        roundsItemHtml(p.id, idAppropriateItem, !!today[idAppropriateItem.id], !today[idAppropriateItem.id] && !!prev[idAppropriateItem.id], p.itemNotes) +
-        '<div class="workup-subtitle" style="margin-top:10px;">TDM / Levels</div>' +
-        '<div class="rounds-head-row">' +
-          '<div class="rounds-field"><label>Agent</label><select data-field="tdmAgent" data-pid="' + p.id + '">' +
-            TDM_AGENTS.map(function(a){ return '<option value="' + a + '"' + (p.tdmAgent === a ? " selected" : "") + '>' + (a || "— Select —") + '</option>'; }).join("") +
-          '</select></div>' +
-          '<div class="rounds-field"><label>Next Trough Due</label><input type="datetime-local" value="' + escapeHtml(p.tdmNextTrough) + '" data-field="tdmNextTrough" data-pid="' + p.id + '" style="width:190px;"></div>' +
-          '<div class="rounds-field"><label>Target Level</label><input type="text" value="' + escapeHtml(p.tdmTarget) + '" data-field="tdmTarget" data-pid="' + p.id + '" style="width:110px;"></div>' +
-          '<div class="rounds-field"><label>Monitoring Frequency</label><input type="text" value="' + escapeHtml(p.tdmFrequency) + '" data-field="tdmFrequency" data-pid="' + p.id + '" style="width:170px;"></div>' +
-        '</div>' +
-        '<button type="button" class="btn small secondary" data-tdm-note="' + p.id + '" style="margin:8px 0;">Generate TDM Consult Note</button>';
+        roundsItemHtml(p.id, idAppropriateItem, !!today[idAppropriateItem.id], !today[idAppropriateItem.id] && !!prev[idAppropriateItem.id], p.itemNotes);
     }
 
     html += '<div class="workup-subtitle">POC</div>' +
@@ -994,6 +1001,17 @@
 
     html += '<div class="workup-subtitle">Hgb</div>' + workupFieldsRowHtml(p, WORKUP_HEME_FIELDS);
 
+    html += '<div class="workup-subtitle">TDM</div>' +
+      '<div class="rounds-head-row">' +
+        '<div class="rounds-field"><label>Agent</label><select data-field="tdmAgent" data-pid="' + p.id + '">' +
+          TDM_AGENTS.map(function(a){ return '<option value="' + a + '"' + (p.tdmAgent === a ? " selected" : "") + '>' + (a || "— Select —") + '</option>'; }).join("") +
+        '</select></div>' +
+        '<div class="rounds-field"><label>Next Trough Due</label><input type="datetime-local" value="' + escapeHtml(p.tdmNextTrough) + '" data-field="tdmNextTrough" data-pid="' + p.id + '" style="width:190px;"></div>' +
+        '<div class="rounds-field"><label>Target Level</label><input type="text" value="' + escapeHtml(p.tdmTarget) + '" data-field="tdmTarget" data-pid="' + p.id + '" style="width:110px;"></div>' +
+        '<div class="rounds-field"><label>Monitoring Frequency</label><input type="text" value="' + escapeHtml(p.tdmFrequency) + '" data-field="tdmFrequency" data-pid="' + p.id + '" style="width:170px;"></div>' +
+      '</div>' +
+      '<button type="button" class="btn small secondary" data-tdm-note="' + p.id + '" style="margin:8px 0;">Generate TDM Consult Note</button>';
+
     var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
     html += '<div class="workup-subtitle">Safety</div>' +
       safetyItems.map(function(item){
@@ -1004,7 +1022,9 @@
       workupFieldsRowHtml(p, WORKUP_OTHER_FIELDS) +
       workupFieldsRowHtml(p, [{ label: "Drug Coverage", field: "workupOtherDrugCoverage", options: OTHER_YN_OPTIONS }]);
 
-    html += workupTextareaHtml(p, "Home Medications / Medication Reconciliation", "workupHomeMeds");
+    var medrecItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "medrec"; })[0];
+    html += workupTextareaHtml(p, "Home Medications / Medication Reconciliation", "workupHomeMeds") +
+      roundsItemHtml(p.id, medrecItem, !!p.coreChecks[medrecItem.id], false, p.itemNotes, "-homemeds");
 
     return '<div class="rounds-section">' +
       '<div class="rounds-section-title workup-toggle" data-workup-toggle="' + p.id + '">' +
@@ -1140,16 +1160,23 @@
   // follow-up/reassessment, not an unchecked one — so that area flags followUpWhenChecked.
   // Pending cultures also generate a follow-up (to check back once resulted) even though they
   // aren't a checklist item.
+  // Formerly-"Core Review" items now live inline in their clinical section (Med Rec next to Home
+  // Meds, VTE under Safety, Renal Dose Review under GU) — this maps each to that area so generated
+  // follow-up text reflects where it's actually found on the card.
+  var CORE_ITEM_AREAS = { medrec: "Home Meds", vte: "Safety", renaldose: "GU" };
   function addFollowUpsForUnchecked(pid){
     var p = state.patients.find(function(p){ return p.id === pid; });
     if(!p) return;
     var today = getTodayChecks(p);
-    var candidates = ROUNDS_CORE_ITEMS.map(function(item){ return { item: item, area: "Core Review", checked: !!p.coreChecks[item.id], followUpWhenChecked: false }; });
+    var candidates = ROUNDS_CORE_ITEMS.map(function(item){ return { item: item, area: CORE_ITEM_AREAS[item.id] || "Core Review", checked: !!p.coreChecks[item.id], followUpWhenChecked: false }; });
     // Only condition groups actually toggled to Y generate follow-ups — a patient without AF,
     // for example, shouldn't get a follow-up nagging about unchecked AF items.
     CV_CHECK_GROUPS.forEach(function(g){
       if(p[g.toggleField] !== "Y") return;
-      g.items.forEach(function(item){ candidates.push({ item: item, area: "Cardiovascular", checked: !!today[item.id], followUpWhenChecked: false }); });
+      g.items.forEach(function(item){
+        if(item.showIf && !item.showIf(p)) return;
+        candidates.push({ item: item, area: "Cardiovascular", checked: !!today[item.id], followUpWhenChecked: false });
+      });
     });
     if(p.workupIdOnAbx === "Y"){
       ABX_ITEMS.forEach(function(item){ candidates.push({ item: item, area: "Antibiotics", checked: !!today[item.id], followUpWhenChecked: false }); });
@@ -1249,8 +1276,6 @@
     var doneTasks = p.tasks.filter(function(t){ return t.done; });
     var orderedTasks = openTasks.concat(doneTasks);
 
-    var coreHtml = ROUNDS_CORE_ITEMS.map(function(item){ return roundsItemHtml(p.id, item, !!p.coreChecks[item.id], false, p.itemNotes); }).join("");
-
     var card = document.createElement("div");
     card.className = "patient-card";
     card.innerHTML =
@@ -1277,7 +1302,6 @@
           '<div class="rounds-field"><label>A1C</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:65px;"></div>' +
         '</div>' +
         buildWorkupSectionHtml(p) +
-        '<div class="rounds-section"><div class="rounds-section-title">Core Review</div>' + coreHtml + '</div>' +
         buildIvPoSectionHtml(p) +
         '<div class="rounds-section"><div class="rounds-section-title">Follow-Up / To Do</div>' +
           (orderedTasks.length ? orderedTasks.map(function(t){ return taskRowHtml(p.id, t); }).join("") : '<div class="empty" style="padding:10px 0;">No follow-up tasks yet.</div>') +
@@ -1506,6 +1530,7 @@
     if(cvBits.length) lines.push({ label: "CV", value: cvBits.join(" · ") });
 
     var respBits = [];
+    if(p.workupRespGeneral) respBits.push(p.workupRespGeneral);
     if(p.respMode) respBits.push(p.respMode);
     if(p.respFio2) respBits.push("FiO2 " + p.respFio2 + "%");
     if(p.respFlowRate) respBits.push("Flow " + p.respFlowRate);
@@ -1520,6 +1545,7 @@
     if(giBits.length) lines.push({ label: "GI", value: giBits.join(" · ") });
 
     var guBits = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
+    if(p.coreChecks.renaldose) guBits.push("✓ Renal-dosed meds reviewed");
     if(guBits.length) lines.push({ label: "GU", value: guBits.join(" · ") });
 
     var abxBits = formattedAbxRows(p);
@@ -1533,13 +1559,6 @@
         return bits.join(" ");
       });
       lines.push({ label: "Cultures", value: cxBits.join("; ") });
-    }
-    if(p.tdmAgent || p.tdmTarget || p.tdmNextTrough){
-      var tdmBits = [];
-      if(p.tdmAgent) tdmBits.push("Agent " + p.tdmAgent);
-      if(p.tdmTarget) tdmBits.push("target " + p.tdmTarget);
-      if(p.tdmNextTrough) tdmBits.push("next trough " + formatDateTime(p.tdmNextTrough));
-      lines.push({ label: "TDM", value: tdmBits.length ? tdmBits.join(" · ") : "not yet specified" });
     }
     var idBits = [];
     if(p.workupIdWbc) idBits.push("WBC " + p.workupIdWbc);
@@ -1557,6 +1576,14 @@
 
     var hemeBits = WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
     if(hemeBits.length) lines.push({ label: "Hgb", value: hemeBits.join(" · ") });
+
+    if(p.tdmAgent || p.tdmTarget || p.tdmNextTrough){
+      var tdmBits = [];
+      if(p.tdmAgent) tdmBits.push("Agent " + p.tdmAgent);
+      if(p.tdmTarget) tdmBits.push("target " + p.tdmTarget);
+      if(p.tdmNextTrough) tdmBits.push("next trough " + formatDateTime(p.tdmNextTrough));
+      lines.push({ label: "TDM", value: tdmBits.length ? tdmBits.join(" · ") : "not yet specified" });
+    }
 
     var otherBits = [];
     if(p.workupOtherSmoker) otherBits.push("Smoker: " + p.workupOtherSmoker);
@@ -1719,6 +1746,7 @@
     html += bulletSection("CV", cvLines);
 
     var respLines = [];
+    if(p.workupRespGeneral) respLines.push("General: " + p.workupRespGeneral);
     if(p.respMode) respLines.push("Mode: " + p.respMode);
     if(p.respFio2) respLines.push("FiO2: " + p.respFio2 + "%");
     if(p.respFlowRate) respLines.push("Flow Rate: " + p.respFlowRate);
@@ -1731,7 +1759,9 @@
 
     html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    html += bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    var guLines = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
+    guLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Renal-dosed meds reviewed");
+    html += bulletSection("GU", guLines);
 
     var idLines = formattedAbxRows(p);
     if(p.abxDuration) idLines.push("Duration: " + p.abxDuration);
@@ -1747,10 +1777,6 @@
         idLines.push("Culture — " + bits.join(" · "));
       });
     }
-    if(p.tdmAgent) idLines.push("TDM Agent: " + p.tdmAgent);
-    if(p.tdmTarget) idLines.push("TDM Target: " + p.tdmTarget);
-    if(p.tdmFrequency) idLines.push("TDM Frequency: " + p.tdmFrequency);
-    if(p.tdmNextTrough) idLines.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
     if(p.workupIdWbc) idLines.push("WBC: " + p.workupIdWbc);
     if(p.workupIdTemp) idLines.push("Temp: " + p.workupIdTemp);
     if(p.workupIdCrp) idLines.push("CRP: " + p.workupIdCrp);
@@ -1766,6 +1792,13 @@
 
     html += bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
+    var tdmLines = [];
+    if(p.tdmAgent) tdmLines.push("Agent: " + p.tdmAgent);
+    if(p.tdmTarget) tdmLines.push("Target: " + p.tdmTarget);
+    if(p.tdmFrequency) tdmLines.push("Frequency: " + p.tdmFrequency);
+    if(p.tdmNextTrough) tdmLines.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
+    html += bulletSection("TDM", tdmLines);
+
     var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
     html += bulletSection("Safety", safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
 
@@ -1775,6 +1808,7 @@
     if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
     html += bulletSection("Other", otherLines);
 
+    html += bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec reviewed"]);
     html += textSection("Home Medications / Medication Reconciliation", p.workupHomeMeds);
 
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
@@ -1852,6 +1886,7 @@
     bulletSection("CV", cvLines);
 
     var respLines = [];
+    if(p.workupRespGeneral) respLines.push("General: " + p.workupRespGeneral);
     if(p.respMode) respLines.push("Mode: " + p.respMode);
     if(p.respFio2) respLines.push("FiO2: " + p.respFio2 + "%");
     if(p.respFlowRate) respLines.push("Flow Rate: " + p.respFlowRate);
@@ -1864,7 +1899,9 @@
 
     bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    var guLinesText = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
+    guLinesText.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Renal-dosed meds reviewed");
+    bulletSection("GU", guLinesText);
 
     var idLines = formattedAbxRows(p);
     if(p.abxDuration) idLines.push("Duration: " + p.abxDuration);
@@ -1880,10 +1917,6 @@
         idLines.push("Culture — " + bits.join(" · "));
       });
     }
-    if(p.tdmAgent) idLines.push("TDM Agent: " + p.tdmAgent);
-    if(p.tdmTarget) idLines.push("TDM Target: " + p.tdmTarget);
-    if(p.tdmFrequency) idLines.push("TDM Frequency: " + p.tdmFrequency);
-    if(p.tdmNextTrough) idLines.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
     if(p.workupIdWbc) idLines.push("WBC: " + p.workupIdWbc);
     if(p.workupIdTemp) idLines.push("Temp: " + p.workupIdTemp);
     if(p.workupIdCrp) idLines.push("CRP: " + p.workupIdCrp);
@@ -1899,6 +1932,13 @@
 
     bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
+    var tdmLines = [];
+    if(p.tdmAgent) tdmLines.push("Agent: " + p.tdmAgent);
+    if(p.tdmTarget) tdmLines.push("Target: " + p.tdmTarget);
+    if(p.tdmFrequency) tdmLines.push("Frequency: " + p.tdmFrequency);
+    if(p.tdmNextTrough) tdmLines.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
+    bulletSection("TDM", tdmLines);
+
     var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
     bulletSection("Safety", safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
 
@@ -1908,6 +1948,7 @@
     if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
     bulletSection("Other", otherLines);
 
+    bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec reviewed"]);
     textSection("Home Medications / Medication Reconciliation", p.workupHomeMeds);
 
     out.push("FOLLOW-UP ITEMS");
