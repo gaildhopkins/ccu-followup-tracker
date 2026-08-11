@@ -196,6 +196,7 @@
   .print-patient-name{font-size:16px; font-weight:700;}
   .print-patient-room{font-size:12px; color:#555; margin-top:1px;}
   .print-section{margin-bottom:18px;}
+  .workup-note-print .print-section{margin-bottom:0;}
   .print-section h2{font-size:12.5px; text-transform:uppercase; letter-spacing:0.5px; color:#333;
     border-bottom:1px solid #ccc; padding-bottom:4px; margin:0 0 8px 0;}
   .print-table{width:100%; border-collapse:collapse; font-size:12px;}
@@ -465,7 +466,7 @@
   var IV_ANTIBIOTICS = ["", "Cefazolin", "Ceftazidime", "Ceftriaxone", "Clindamycin", "Piperacillin/Tazobactam", "Ampicillin/Sulbactam", "Meropenem", "Ertapenem", "Vancomycin", "Ciprofloxacin", "Levofloxacin", "Moxifloxacin", "Metronidazole", "Daptomycin", "Other"];
   var ABX_ROWS_MAX = 3;
   var CULTURE_SITES = ["", "Blood", "Urine", "Sputum", "BAL", "Wound", "Lines", "Abscess/Drain"];
-  var CULTURE_STATUSES = ["Pending", "Resulted"];
+  var CULTURE_STATUSES = ["Pending", "Resulted", "Negative"];
   var RESP_MODES = ["", "Room Air", "NP", "Oxymask", "Optiflow", "CPAP", "BiPAP", "IMV"];
   var TDM_AGENTS = ["", "Carbamazepine", "Cyclosporine", "Digoxin", "Gentamicin", "Levetiracetam", "Lithium", "Phenytoin", "Tacrolimus", "Valproic Acid", "Vancomycin", "Voriconazole", "Other"];
 
@@ -858,6 +859,7 @@
     var row = p.cultures.find(function(c){ return c.id === rid; });
     if(!row) return;
     row[field] = value;
+    if(field === "status" && value === "Negative"){ row.organism = ""; row.sens = ""; }
     saveState();
   }
 
@@ -1096,8 +1098,9 @@
         '<div class="rounds-field"><label>Status</label><select data-cx-field="status" data-pid="' + p.id + '" data-rid="' + c.id + '">' +
           CULTURE_STATUSES.map(function(s){ return '<option value="' + s + '"' + (c.status === s ? " selected" : "") + '>' + s + '</option>'; }).join("") +
         '</select></div>' +
+        (c.status === "Negative" ? "" :
         '<div class="rounds-field"><label>Organism</label><input type="text" value="' + escapeHtml(c.organism) + '" data-cx-field="organism" data-pid="' + p.id + '" data-rid="' + c.id + '" style="width:130px;"></div>' +
-        '<div class="rounds-field" style="flex:1; min-width:150px;"><label>Sensitivities</label><input type="text" value="' + escapeHtml(c.sens) + '" data-cx-field="sens" data-pid="' + p.id + '" data-rid="' + c.id + '" style="width:100%;"></div>' +
+        '<div class="rounds-field" style="flex:1; min-width:150px;"><label>Sensitivities</label><input type="text" value="' + escapeHtml(c.sens) + '" data-cx-field="sens" data-pid="' + p.id + '" data-rid="' + c.id + '" style="width:100%;"></div>') +
         '<button type="button" class="btn small danger" data-cx-remove="' + p.id + '|' + c.id + '">×</button>' +
       '</div>';
     }).join("");
@@ -1600,6 +1603,11 @@
       lines.push({ label: "TDM", value: tdmBits.length ? tdmBits.join(" · ") : "not yet specified" });
     }
 
+    var vteNote = p.itemNotes.vte;
+    if(p.coreChecks.vte || vteNote){
+      lines.push({ label: "Safety", value: (p.coreChecks.vte ? "✓ VTE prophylaxis" : "☐ VTE prophylaxis") + (vteNote ? " — " + vteNote : "") });
+    }
+
     var otherBits = [];
     if(p.workupOtherSmoker) otherBits.push("Smoker: " + p.workupOtherSmoker);
     if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherBits.push("NRT Ordered: " + p.workupOtherNrt);
@@ -1714,7 +1722,8 @@
   // entered are omitted. Follow-Up Items are pulled live from the patient's existing
   // Follow-Up/To-Do task list rather than a separate field, so it never goes out of sync.
   function buildWorkupNoteHtml(p){
-    var html = '<div class="print-header">' +
+    var html = '<div class="workup-note-print">';
+    html += '<div class="print-header">' +
       '<h1>Initial Patient Workup</h1>' +
       '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
     '</div>';
@@ -1838,6 +1847,7 @@
     html += '</div>';
 
     html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
+    html += '</div>';
     return html;
   }
 
@@ -1870,14 +1880,12 @@
       if(!text) return;
       out.push(title.toUpperCase());
       out.push(text);
-      out.push("");
     }
     // One compact line per section (fields joined by " · "), matching the Monitoring row style
     // used in the Daily Rounds report, rather than a separate line for every single field.
     function bulletSection(title, lines){
       if(!lines.length) return;
       out.push(title.toUpperCase() + ": " + lines.join(" · "));
-      out.push("");
     }
     function checkedItemLines(items){
       return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
