@@ -1533,7 +1533,8 @@
   // Home Meds) stay out of this quick summary and only appear in the full Workup Note.
   // Same head-to-toe order as the Initial Workup form: Infusions, Neuro, CV, Resp, GI, GU,
   // ID (Abx, Cultures, TDM, WBC/Temp — matching the ID section's internal order), Glycemic, Heme.
-  function monitoringLines(p){
+  function monitoringLines(p, opts){
+    opts = opts || {};
     var lines = [];
 
     var ivMedsBits = activeIvMeds(p);
@@ -1549,7 +1550,7 @@
 
     var respBits = [];
     if(p.workupRespGeneral) respBits.push(p.workupRespGeneral);
-    if(p.respMode) respBits.push(p.respMode);
+    if(p.respMode && !opts.omitRespMode) respBits.push(p.respMode);
     if(p.respFio2) respBits.push("FiO2 " + p.respFio2 + "%");
     if(p.respFlowRate) respBits.push("Flow " + p.respFlowRate);
     if(p.respSettings) respBits.push("Support: " + p.respSettings);
@@ -1559,10 +1560,10 @@
     if(p.workupRespChestTube) respBits.push("Chest tube: " + p.workupRespChestTube);
     if(respBits.length) lines.push({ label: "Resp", value: respBits.join(" · ") });
 
-    var giBits = WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
+    var giBits = WORKUP_GI_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGiGeneral"); }).map(function(f){ return f.label + ": " + p[f.field]; });
     if(giBits.length) lines.push({ label: "GI", value: giBits.join(" · ") });
 
-    var guBits = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
+    var guBits = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGuGeneral"); }).map(function(f){ return f.label + ": " + p[f.field]; });
     if(p.coreChecks.renaldose) guBits.push("✓ Review renal dosing");
     if(guBits.length) lines.push({ label: "GU", value: guBits.join(" · ") });
 
@@ -1723,18 +1724,6 @@
   // Follow-Up/To-Do task list rather than a separate field, so it never goes out of sync.
   function buildWorkupNoteHtml(p){
     var html = '<div class="workup-note-print">';
-    html += '<div class="print-header">' +
-      '<h1>Initial Patient Workup</h1>' +
-      '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
-    '</div>';
-    html += '<div class="print-patient">';
-    html += '<div class="print-patient-name">' + escapeHtml(p.name) + '</div>';
-    var metaBits = [];
-    if(p.room) metaBits.push("Room " + p.room);
-    if(p.dx) metaBits.push(p.dx);
-    if(p.ef) metaBits.push("EF " + p.ef + "%");
-    if(metaBits.length) html += '<div class="print-patient-room">' + escapeHtml(metaBits.join(" · ")) + '</div>';
-    html += '</div>';
 
     var today = getTodayChecks(p);
 
@@ -1747,6 +1736,12 @@
     function bulletSection(title, lines){
       if(!lines.length) return "";
       return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><p style="margin:0;">' + escapeHtml(lines.join(" · ")) + '</p></div>';
+    }
+    // Same as bulletSection but without the category heading (POC/Safety/Other read fine as a
+    // bare line without a label repeating what the content already says).
+    function bulletSectionNoTitle(lines){
+      if(!lines.length) return "";
+      return '<div class="print-section"><p style="margin:0;">' + escapeHtml(lines.join(" · ")) + '</p></div>';
     }
     function checkedItemLines(items){
       return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
@@ -1771,7 +1766,6 @@
 
     var respLines = [];
     if(p.workupRespGeneral) respLines.push("General: " + p.workupRespGeneral);
-    if(p.respMode) respLines.push("Mode: " + p.respMode);
     if(p.respFio2) respLines.push("FiO2: " + p.respFio2 + "%");
     if(p.respFlowRate) respLines.push("Flow Rate: " + p.respFlowRate);
     if(p.respSettings) respLines.push("Support: " + p.respSettings);
@@ -1781,9 +1775,9 @@
     if(p.workupRespChestTube) respLines.push("Chest Tube: " + p.workupRespChestTube);
     html += bulletSection("Resp", respLines);
 
-    html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    var guLines = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
+    var guLines = WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
     guLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Review renal dosing");
     html += bulletSection("GU", guLines);
 
@@ -1812,7 +1806,7 @@
     if(p.workupGlycemicPocTrend) glycemicLines.push("POC Trend: " + p.workupGlycemicPocTrend);
     if(p.a1cLevel) glycemicLines.push("A1C: " + p.a1cLevel);
     if(p.a1cChanges) glycemicLines.push("Therapy: " + p.a1cChanges);
-    html += bulletSection("POC", glycemicLines);
+    html += bulletSectionNoTitle(glycemicLines);
 
     html += bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
@@ -1824,16 +1818,16 @@
     html += bulletSection("TDM", tdmLines);
 
     var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
-    html += bulletSection("Safety", safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
+    html += bulletSectionNoTitle(safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
 
     var otherLines = [];
     if(p.workupOtherSmoker) otherLines.push("Smoker: " + p.workupOtherSmoker);
     if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered: " + p.workupOtherNrt);
     if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
-    html += bulletSection("Other", otherLines);
+    html += bulletSectionNoTitle(otherLines);
 
     html += bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec"]);
-    html += textSection("Home Medications / Medication Reconciliation", p.workupHomeMeds);
+    html += textSection("Home Meds", p.workupHomeMeds);
 
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
     html += '<div class="print-section"><h2>Follow-Up Items</h2>';
@@ -1846,7 +1840,6 @@
     }
     html += '</div>';
 
-    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
     html += '</div>';
     return html;
   }
@@ -1863,16 +1856,6 @@
   // directly into an EMR or documentation system rather than printing.
   function buildWorkupNoteText(p){
     var out = [];
-    out.push("INITIAL PATIENT WORKUP");
-    out.push("Generated " + genTimestamp());
-    out.push("");
-    out.push(p.name);
-    var metaBits = [];
-    if(p.room) metaBits.push("Room " + p.room);
-    if(p.dx) metaBits.push(p.dx);
-    if(p.ef) metaBits.push("EF " + p.ef + "%");
-    if(metaBits.length) out.push(metaBits.join(" · "));
-    out.push("");
 
     var today = getTodayChecks(p);
 
@@ -1886,6 +1869,12 @@
     function bulletSection(title, lines){
       if(!lines.length) return;
       out.push(title.toUpperCase() + ": " + lines.join(" · "));
+    }
+    // Same as bulletSection but without the category heading (POC/Safety/Other read fine as a
+    // bare line without a label repeating what the content already says).
+    function bulletSectionNoTitle(lines){
+      if(!lines.length) return;
+      out.push(lines.join(" · "));
     }
     function checkedItemLines(items){
       return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
@@ -1910,7 +1899,6 @@
 
     var respLines = [];
     if(p.workupRespGeneral) respLines.push("General: " + p.workupRespGeneral);
-    if(p.respMode) respLines.push("Mode: " + p.respMode);
     if(p.respFio2) respLines.push("FiO2: " + p.respFio2 + "%");
     if(p.respFlowRate) respLines.push("Flow Rate: " + p.respFlowRate);
     if(p.respSettings) respLines.push("Support: " + p.respSettings);
@@ -1920,9 +1908,9 @@
     if(p.workupRespChestTube) respLines.push("Chest Tube: " + p.workupRespChestTube);
     bulletSection("Resp", respLines);
 
-    bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    var guLinesText = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
+    var guLinesText = WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
     guLinesText.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Review renal dosing");
     bulletSection("GU", guLinesText);
 
@@ -1951,7 +1939,7 @@
     if(p.workupGlycemicPocTrend) glycemicLines.push("POC Trend: " + p.workupGlycemicPocTrend);
     if(p.a1cLevel) glycemicLines.push("A1C: " + p.a1cLevel);
     if(p.a1cChanges) glycemicLines.push("Therapy: " + p.a1cChanges);
-    bulletSection("POC", glycemicLines);
+    bulletSectionNoTitle(glycemicLines);
 
     bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
@@ -1963,16 +1951,16 @@
     bulletSection("TDM", tdmLines);
 
     var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
-    bulletSection("Safety", safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
+    bulletSectionNoTitle(safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
 
     var otherLines = [];
     if(p.workupOtherSmoker) otherLines.push("Smoker: " + p.workupOtherSmoker);
     if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered: " + p.workupOtherNrt);
     if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
-    bulletSection("Other", otherLines);
+    bulletSectionNoTitle(otherLines);
 
     bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec"]);
-    textSection("Home Medications / Medication Reconciliation", p.workupHomeMeds);
+    textSection("Home Meds", p.workupHomeMeds);
 
     out.push("FOLLOW-UP ITEMS");
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
@@ -1983,8 +1971,6 @@
     } else {
       out.push("No open follow-up items.");
     }
-    out.push("");
-    out.push("G. Hopkins, RPh | RVH CCU & Cardiac Floor");
 
     return out.join("\n");
   }
@@ -1993,17 +1979,6 @@
   // checked/entered) rather than the one-time admission Workup, for day-to-day charting.
   function buildDailyNoteText(p){
     var out = [];
-    out.push("DAILY PROGRESS NOTE — " + new Date().toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric", year:"numeric" }));
-    out.push("");
-    var headBits = [p.name];
-    var subBits = [];
-    if(p.room) subBits.push("Room " + p.room);
-    if(p.dx) subBits.push(p.dx);
-    if(p.ef) subBits.push("EF " + p.ef + "%");
-    if(subBits.length) headBits.push("(" + subBits.join(" · ") + ")");
-    out.push(headBits.join(" "));
-    out.push("");
-
     out.push("CORE REVIEW");
     ROUNDS_CORE_ITEMS.forEach(function(item){
       var checked = !!p.coreChecks[item.id];
@@ -2025,10 +2000,11 @@
       }
     }
 
-    var monLines = monitoringLines(p);
+    var monLines = monitoringLines(p, { omitRespMode: true, omitGeneral: true });
     if(monLines.length){
       out.push("MONITORING");
-      monLines.forEach(function(l){ out.push(l.label + ": " + l.value); });
+      var noTitleLabels = ["POC", "Safety", "Other"];
+      monLines.forEach(function(l){ out.push(noTitleLabels.indexOf(l.label) !== -1 ? l.value : (l.label + ": " + l.value)); });
       out.push("");
     }
 
@@ -2041,8 +2017,6 @@
     } else {
       out.push("No open follow-up items.");
     }
-    out.push("");
-    out.push("G. Hopkins, RPh | RVH CCU & Cardiac Floor");
 
     return out.join("\n");
   }
