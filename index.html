@@ -1615,6 +1615,8 @@
     if(p.workupOtherDrugCoverage) otherBits.push("Drug Coverage: " + p.workupOtherDrugCoverage);
     if(otherBits.length) lines.push({ label: "Other", value: otherBits.join(" · ") });
 
+    if(p.workupHomeMeds) lines.push({ label: "Home Meds", value: p.workupHomeMeds });
+
     return lines;
   }
 
