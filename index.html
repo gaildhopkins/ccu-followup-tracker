@@ -532,7 +532,6 @@
       { id: "acs-mra", t: "MRA", n: "EF <40%", showIf: function(p){ return p.cvAcsEfLt40 === "Y"; } },
     ]},
   ];
-  var ALL_CV_CHECK_ITEMS = CV_CHECK_GROUPS.reduce(function(acc, g){ return acc.concat(g.items); }, []);
 
   var ABX_ITEMS = [
     { id: "abx-appropriate", t: "Spectrum / indication still appropriate", n: "De-escalate per culture results when available" },
@@ -1517,14 +1516,16 @@
     return active;
   }
 
-  // Currently-checked HFrEF/HFpEF/AF/ACS guideline items, for pulling into print/export.
-  function activeCvChecks(p){
+  // Currently-checked HFrEF/HFpEF/AF/ACS guideline items, grouped by condition, for pulling into
+  // print/export. Shows what was typed into each item's note box (the actual drug/dose chosen)
+  // rather than the drug class prompt, falling back to the class only if nothing was entered.
+  function activeCvChecksByGroup(p){
     var todayChecks = getTodayChecks(p);
-    var active = [];
-    ALL_CV_CHECK_ITEMS.forEach(function(item){
-      if(todayChecks[item.id]) active.push(item.t);
-    });
-    return active;
+    return CV_CHECK_GROUPS.map(function(g){
+      var entries = g.items.filter(function(item){ return !!todayChecks[item.id]; })
+        .map(function(item){ return p.itemNotes[item.id] || item.t; });
+      return { shortLabel: g.shortLabel, entries: entries };
+    }).filter(function(g){ return g.entries.length; });
   }
 
   // Pulls every entered Initial Workup field into a single "Monitoring" summary — used by both
@@ -1544,9 +1545,10 @@
     if(neuroBits.length) lines.push({ label: "Neuro", value: neuroBits.join(" · ") });
 
     var cvBits = WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    var cvCheckBits = activeCvChecks(p).map(function(t){ return "✓ " + t; });
-    cvBits = cvBits.concat(cvCheckBits);
     if(cvBits.length) lines.push({ label: "CV", value: cvBits.join(" · ") });
+    activeCvChecksByGroup(p).forEach(function(g){
+      lines.push({ label: g.shortLabel, value: g.entries.join(" · ") });
+    });
 
     var respBits = [];
     if(p.workupRespGeneral) respBits.push(p.workupRespGeneral);
@@ -1752,6 +1754,14 @@
         return item.t + (note ? " — " + note : "");
       });
     }
+    // For the CV condition-query groups (HFrEF/HFpEF/AF/ACS): the drug class name (item.t) is
+    // just a prompt — what actually matters is what was typed into the note box, so show that
+    // instead of the class, falling back to the class only if nothing was entered.
+    function checkedItemEntries(items){
+      return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
+        return p.itemNotes[item.id] || item.t;
+      });
+    }
 
     html += textSection("Presenting Complaint / Why Admitted", p.workupPresenting);
     html += textSection("Past Medical History", p.workupPmh);
@@ -1762,9 +1772,10 @@
 
     html += bulletSection("Neuro", WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    var cvLines = WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    cvLines = cvLines.concat(CV_CHECK_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []));
-    html += bulletSection("CV", cvLines);
+    html += bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    CV_CHECK_GROUPS.forEach(function(g){
+      html += bulletSection(g.shortLabel, checkedItemEntries(g.items));
+    });
 
     var respLines = [];
     if(p.workupRespGeneral) respLines.push("General: " + p.workupRespGeneral);
@@ -1885,6 +1896,14 @@
         return item.t + (note ? " — " + note : "");
       });
     }
+    // For the CV condition-query groups (HFrEF/HFpEF/AF/ACS): the drug class name (item.t) is
+    // just a prompt — what actually matters is what was typed into the note box, so show that
+    // instead of the class, falling back to the class only if nothing was entered.
+    function checkedItemEntries(items){
+      return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
+        return p.itemNotes[item.id] || item.t;
+      });
+    }
 
     textSection("Presenting Complaint / Why Admitted", p.workupPresenting);
     textSection("Past Medical History", p.workupPmh);
@@ -1895,9 +1914,10 @@
 
     bulletSection("Neuro", WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    var cvLines = WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    cvLines = cvLines.concat(CV_CHECK_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []));
-    bulletSection("CV", cvLines);
+    bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    CV_CHECK_GROUPS.forEach(function(g){
+      bulletSection(g.shortLabel, checkedItemEntries(g.items));
+    });
 
     var respLines = [];
     if(p.workupRespGeneral) respLines.push("General: " + p.workupRespGeneral);
