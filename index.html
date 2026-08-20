@@ -1763,8 +1763,8 @@
       });
     }
 
-    html += textSection("Presenting Complaint / Why Admitted", p.workupPresenting);
-    html += textSection("Past Medical History", p.workupPmh);
+    html += textSection("RFA", p.workupPresenting);
+    html += textSection("Hx", p.workupPmh);
 
     var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
     if(p.workupInfusionsOther) infusionLines.push("Other: " + p.workupInfusionsOther);
@@ -1778,9 +1778,8 @@
     });
 
     var respLines = [];
-    if(p.workupRespGeneral) respLines.push("General: " + p.workupRespGeneral);
+    if(p.respMode) respLines.push(p.respMode);
     if(p.respFio2) respLines.push("FiO2: " + p.respFio2 + "%");
-    if(p.respFlowRate) respLines.push("Flow Rate: " + p.respFlowRate);
     if(p.respSettings) respLines.push("Support: " + p.respSettings);
     if(p.respPeep) respLines.push("PEEP: " + p.respPeep);
     if(p.workupRespCxr) respLines.push("CXR: " + p.workupRespCxr);
@@ -1790,14 +1789,15 @@
 
     html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    var guLines = WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    guLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Review renal dosing");
-    html += bulletSection("GU", guLines);
+    html += bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var idLines = formattedAbxRows(p);
     if(p.abxDuration) idLines.push("Duration: " + p.abxDuration);
     if(p.abxStopDate) idLines.push("ASO/Stop date: " + formatDue(p.abxStopDate));
-    idLines = idLines.concat(checkedItemLines(ABX_ITEMS));
+    if(today["abx-appropriate"]){
+      var aspNote = p.itemNotes["abx-appropriate"];
+      idLines.push("ASP rqd" + (aspNote ? " — " + aspNote : ""));
+    }
     if(p.cultures && p.cultures.length){
       p.cultures.forEach(function(c){
         var bits = [];
@@ -1830,8 +1830,7 @@
     if(p.tdmNextTrough) tdmLines.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
     html += bulletSection("TDM", tdmLines);
 
-    var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
-    html += bulletSectionNoTitle(safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
+    html += bulletSectionNoTitle([p.itemNotes.vte || "VTE px"]);
 
     var otherLines = [];
     if(p.workupOtherSmoker) otherLines.push("Smoker: " + p.workupOtherSmoker);
@@ -1839,14 +1838,14 @@
     if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
     html += bulletSectionNoTitle(otherLines);
 
-    html += bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec"]);
+    html += bulletSection("Med Rec", [p.coreChecks.medrec ? "Done" : "☐ Med rec"]);
     html += textSection("Home Meds", p.workupHomeMeds);
 
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
-    html += '<div class="print-section"><h2>Follow-Up Items</h2>';
+    html += '<div class="print-section"><h2>To Do</h2>';
     if(openTasks.length){
       html += '<ul class="print-list">' + openTasks.map(function(t){
-        return '<li>' + escapeHtml(taskDisplayText(t)) + (t.due ? ' <span class="print-dim">(due ' + formatDue(t.due) + ')</span>' : '') + (t.priority === "urgent" ? ' <span class="print-dim">[Urgent]</span>' : '') + '</li>';
+        return '<li>' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(due ' + formatDue(t.due) + ')</span>' : '') + (t.priority === "urgent" ? ' <span class="print-dim">[Urgent]</span>' : '') + '</li>';
       }).join("") + '</ul>';
     } else {
       html += '<p class="print-empty">No open follow-up items.</p>';
@@ -1905,8 +1904,8 @@
       });
     }
 
-    textSection("Presenting Complaint / Why Admitted", p.workupPresenting);
-    textSection("Past Medical History", p.workupPmh);
+    textSection("RFA", p.workupPresenting);
+    textSection("Hx", p.workupPmh);
 
     var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
     if(p.workupInfusionsOther) infusionLines.push("Other: " + p.workupInfusionsOther);
@@ -1920,9 +1919,8 @@
     });
 
     var respLines = [];
-    if(p.workupRespGeneral) respLines.push("General: " + p.workupRespGeneral);
+    if(p.respMode) respLines.push(p.respMode);
     if(p.respFio2) respLines.push("FiO2: " + p.respFio2 + "%");
-    if(p.respFlowRate) respLines.push("Flow Rate: " + p.respFlowRate);
     if(p.respSettings) respLines.push("Support: " + p.respSettings);
     if(p.respPeep) respLines.push("PEEP: " + p.respPeep);
     if(p.workupRespCxr) respLines.push("CXR: " + p.workupRespCxr);
@@ -1932,14 +1930,15 @@
 
     bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
-    var guLinesText = WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    guLinesText.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Review renal dosing");
-    bulletSection("GU", guLinesText);
+    bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
 
     var idLines = formattedAbxRows(p);
     if(p.abxDuration) idLines.push("Duration: " + p.abxDuration);
     if(p.abxStopDate) idLines.push("ASO/Stop date: " + formatDue(p.abxStopDate));
-    idLines = idLines.concat(checkedItemLines(ABX_ITEMS));
+    if(today["abx-appropriate"]){
+      var aspNote = p.itemNotes["abx-appropriate"];
+      idLines.push("ASP rqd" + (aspNote ? " — " + aspNote : ""));
+    }
     if(p.cultures && p.cultures.length){
       p.cultures.forEach(function(c){
         var bits = [];
@@ -1972,8 +1971,7 @@
     if(p.tdmNextTrough) tdmLines.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
     bulletSection("TDM", tdmLines);
 
-    var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
-    bulletSectionNoTitle(safetyItems.map(function(item){ return (p.coreChecks[item.id] ? "✓ " : "☐ ") + item.t; }));
+    bulletSectionNoTitle([p.itemNotes.vte || "VTE px"]);
 
     var otherLines = [];
     if(p.workupOtherSmoker) otherLines.push("Smoker: " + p.workupOtherSmoker);
@@ -1981,14 +1979,14 @@
     if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
     bulletSectionNoTitle(otherLines);
 
-    bulletSection("Med Rec", [(p.coreChecks.medrec ? "✓ " : "☐ ") + "Med rec"]);
+    bulletSection("Med Rec", [p.coreChecks.medrec ? "Done" : "☐ Med rec"]);
     textSection("Home Meds", p.workupHomeMeds);
 
-    out.push("FOLLOW-UP ITEMS");
+    out.push("TO DO");
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
     if(openTasks.length){
       openTasks.forEach(function(t){
-        out.push("- " + taskDisplayText(t) + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : ""));
+        out.push("- " + t.text + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : ""));
       });
     } else {
       out.push("No open follow-up items.");
