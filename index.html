@@ -197,6 +197,7 @@
   .print-patient-room{font-size:12px; color:#555; margin-top:1px;}
   .print-section{margin-bottom:18px;}
   .workup-note-print .print-section{margin-bottom:0;}
+  .workup-note-print .print-section h2{text-transform:none;}
   .print-section h2{font-size:12.5px; text-transform:uppercase; letter-spacing:0.5px; color:#333;
     border-bottom:1px solid #ccc; padding-bottom:4px; margin:0 0 8px 0;}
   .print-table{width:100%; border-collapse:collapse; font-size:12px;}
@@ -1735,23 +1736,23 @@
       if(!text) return "";
       return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><p style="white-space:pre-wrap; margin:0;">' + escapeHtml(text) + '</p></div>';
     }
-    // One compact line per section (fields joined by " · "), matching the Monitoring row style
+    // One compact line per section (fields joined by ", "), matching the Monitoring row style
     // used in the Daily Rounds report, rather than a separate line for every single field.
     function bulletSection(title, lines){
       if(!lines.length) return "";
-      return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><p style="margin:0;">' + escapeHtml(lines.join(" · ")) + '</p></div>';
+      return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><p style="margin:0;">' + escapeHtml(lines.join(", ")) + '</p></div>';
     }
     // Same as bulletSection but without the category heading (POC/Safety/Other read fine as a
     // bare line without a label repeating what the content already says).
     function bulletSectionNoTitle(lines){
       if(!lines.length) return "";
-      return '<div class="print-section"><p style="margin:0;">' + escapeHtml(lines.join(" · ")) + '</p></div>';
+      return '<div class="print-section"><p style="margin:0;">' + escapeHtml(lines.join(", ")) + '</p></div>';
     }
     function checkedItemLines(items){
       return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
         var note = p.itemNotes[item.id];
-        if(item.unit) return item.t + (note ? " — " + note + " " + item.unit : "");
-        return item.t + (note ? " — " + note : "");
+        if(item.unit) return item.t + (note ? " " + note + " " + item.unit : "");
+        return item.t + (note ? " " + note : "");
       });
     }
     // For the CV condition-query groups (HFrEF/HFpEF/AF/ACS): the drug class name (item.t) is
@@ -1767,33 +1768,39 @@
     html += textSection("Hx", p.workupPmh);
 
     var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
-    if(p.workupInfusionsOther) infusionLines.push("Other: " + p.workupInfusionsOther);
+    if(p.workupInfusionsOther) infusionLines.push("Other " + p.workupInfusionsOther);
     html += bulletSection("Infusions", infusionLines);
 
-    html += bulletSection("Neuro", WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    var neuroLines = [];
+    if(p.workupNeuroGeneral) neuroLines.push(p.workupNeuroGeneral);
+    neuroLines = neuroLines.concat(WORKUP_NEURO_FIELDS.filter(function(f){ return f.field !== "workupNeuroGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+    html += bulletSection("Neuro", neuroLines);
 
-    html += bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    html += bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
+      if(f.label === "Rhythm" || f.label === "Rate") return p[f.field];
+      return f.label + " " + p[f.field];
+    }));
     CV_CHECK_GROUPS.forEach(function(g){
       html += bulletSection(g.shortLabel, checkedItemEntries(g.items));
     });
 
     var respLines = [];
     if(p.respMode) respLines.push(p.respMode);
-    if(p.respFio2) respLines.push("FiO2: " + p.respFio2 + "%");
-    if(p.respSettings) respLines.push("Support: " + p.respSettings);
-    if(p.respPeep) respLines.push("PEEP: " + p.respPeep);
-    if(p.workupRespCxr) respLines.push("CXR: " + p.workupRespCxr);
-    if(p.workupRespChestCt) respLines.push("Chest CT: " + p.workupRespChestCt);
-    if(p.workupRespChestTube) respLines.push("Chest Tube: " + p.workupRespChestTube);
+    if(p.respFio2) respLines.push("FiO2 " + p.respFio2 + "%");
+    if(p.respSettings) respLines.push("Support " + p.respSettings);
+    if(p.respPeep) respLines.push("PEEP " + p.respPeep);
+    if(p.workupRespCxr) respLines.push("CXR " + p.workupRespCxr);
+    if(p.workupRespChestCt) respLines.push("Chest CT " + p.workupRespChestCt);
+    if(p.workupRespChestTube) respLines.push("Chest Tube " + p.workupRespChestTube);
     html += bulletSection("Resp", respLines);
 
-    html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
-    html += bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    html += bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     var idLines = formattedAbxRows(p);
-    if(p.abxDuration) idLines.push("Duration: " + p.abxDuration);
-    if(p.abxStopDate) idLines.push("ASO/Stop date: " + formatDue(p.abxStopDate));
+    if(p.abxDuration) idLines.push("Duration " + p.abxDuration);
+    if(p.abxStopDate) idLines.push("ASO/Stop date " + formatDue(p.abxStopDate));
     if(today["abx-appropriate"]){
       var aspNote = p.itemNotes["abx-appropriate"];
       idLines.push("ASP rqd" + (aspNote ? " — " + aspNote : ""));
@@ -1804,41 +1811,40 @@
         if(c.site) bits.push(c.site);
         bits.push(c.status || "Pending");
         if(c.organism) bits.push(c.organism);
-        if(c.sens) bits.push("Sens: " + c.sens);
-        idLines.push("Culture — " + bits.join(" · "));
+        if(c.sens) bits.push("Sens " + c.sens);
+        idLines.push("Culture — " + bits.join(", "));
       });
     }
-    if(p.workupIdWbc) idLines.push("WBC: " + p.workupIdWbc);
-    if(p.workupIdTemp) idLines.push("Temp: " + p.workupIdTemp);
-    if(p.workupIdCrp) idLines.push("CRP: " + p.workupIdCrp);
-    if(p.workupIdProcalcitonin) idLines.push("Procalcitonin: " + p.workupIdProcalcitonin);
-    if(p.workupIdImaging) idLines.push("Imaging: " + p.workupIdImaging);
+    if(p.workupIdWbc) idLines.push("WBC " + p.workupIdWbc);
+    if(p.workupIdTemp) idLines.push("Temp " + p.workupIdTemp);
+    if(p.workupIdCrp) idLines.push("CRP " + p.workupIdCrp);
+    if(p.workupIdProcalcitonin) idLines.push("Procalcitonin " + p.workupIdProcalcitonin);
+    if(p.workupIdImaging) idLines.push("Imaging " + p.workupIdImaging);
     html += bulletSection("ID", idLines);
 
     var glycemicLines = [];
-    if(p.workupGlycemicPocTrend) glycemicLines.push("POC Trend: " + p.workupGlycemicPocTrend);
-    if(p.a1cLevel) glycemicLines.push("A1C: " + p.a1cLevel);
-    if(p.a1cChanges) glycemicLines.push("Therapy: " + p.a1cChanges);
+    if(p.workupGlycemicPocTrend) glycemicLines.push("POC " + p.workupGlycemicPocTrend);
+    if(p.a1cLevel) glycemicLines.push("A1C " + p.a1cLevel);
+    if(p.a1cChanges) glycemicLines.push("Therapy " + p.a1cChanges);
     html += bulletSectionNoTitle(glycemicLines);
 
-    html += bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    html += bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     var tdmLines = [];
-    if(p.tdmAgent) tdmLines.push("Agent: " + p.tdmAgent);
-    if(p.tdmTarget) tdmLines.push("Target: " + p.tdmTarget);
-    if(p.tdmFrequency) tdmLines.push("Frequency: " + p.tdmFrequency);
-    if(p.tdmNextTrough) tdmLines.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
+    if(p.tdmAgent) tdmLines.push("Agent " + p.tdmAgent);
+    if(p.tdmTarget) tdmLines.push("Target " + p.tdmTarget);
+    if(p.tdmFrequency) tdmLines.push("Frequency " + p.tdmFrequency);
+    if(p.tdmNextTrough) tdmLines.push("Next trough due " + formatDateTime(p.tdmNextTrough));
     html += bulletSection("TDM", tdmLines);
 
     html += bulletSectionNoTitle([p.itemNotes.vte || "VTE px"]);
 
     var otherLines = [];
-    if(p.workupOtherSmoker) otherLines.push("Smoker: " + p.workupOtherSmoker);
-    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered: " + p.workupOtherNrt);
-    if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
+    if(p.workupOtherSmoker) otherLines.push("Smoker " + p.workupOtherSmoker);
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered " + p.workupOtherNrt);
+    if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage " + p.workupOtherDrugCoverage);
     html += bulletSectionNoTitle(otherLines);
 
-    html += bulletSection("Med Rec", [p.coreChecks.medrec ? "Done" : "☐ Med rec"]);
     html += textSection("Home Meds", p.workupHomeMeds);
 
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
@@ -1873,26 +1879,26 @@
 
     function textSection(title, text){
       if(!text) return;
-      out.push(title.toUpperCase());
+      out.push(title);
       out.push(text);
     }
-    // One compact line per section (fields joined by " · "), matching the Monitoring row style
+    // One compact line per section (fields joined by ", "), matching the Monitoring row style
     // used in the Daily Rounds report, rather than a separate line for every single field.
     function bulletSection(title, lines){
       if(!lines.length) return;
-      out.push(title.toUpperCase() + ": " + lines.join(" · "));
+      out.push(title + " " + lines.join(", "));
     }
     // Same as bulletSection but without the category heading (POC/Safety/Other read fine as a
     // bare line without a label repeating what the content already says).
     function bulletSectionNoTitle(lines){
       if(!lines.length) return;
-      out.push(lines.join(" · "));
+      out.push(lines.join(", "));
     }
     function checkedItemLines(items){
       return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
         var note = p.itemNotes[item.id];
-        if(item.unit) return item.t + (note ? " — " + note + " " + item.unit : "");
-        return item.t + (note ? " — " + note : "");
+        if(item.unit) return item.t + (note ? " " + note + " " + item.unit : "");
+        return item.t + (note ? " " + note : "");
       });
     }
     // For the CV condition-query groups (HFrEF/HFpEF/AF/ACS): the drug class name (item.t) is
@@ -1908,33 +1914,39 @@
     textSection("Hx", p.workupPmh);
 
     var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
-    if(p.workupInfusionsOther) infusionLines.push("Other: " + p.workupInfusionsOther);
+    if(p.workupInfusionsOther) infusionLines.push("Other " + p.workupInfusionsOther);
     bulletSection("Infusions", infusionLines);
 
-    bulletSection("Neuro", WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    var neuroLines = [];
+    if(p.workupNeuroGeneral) neuroLines.push(p.workupNeuroGeneral);
+    neuroLines = neuroLines.concat(WORKUP_NEURO_FIELDS.filter(function(f){ return f.field !== "workupNeuroGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+    bulletSection("Neuro", neuroLines);
 
-    bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
+      if(f.label === "Rhythm" || f.label === "Rate") return p[f.field];
+      return f.label + " " + p[f.field];
+    }));
     CV_CHECK_GROUPS.forEach(function(g){
       bulletSection(g.shortLabel, checkedItemEntries(g.items));
     });
 
     var respLines = [];
     if(p.respMode) respLines.push(p.respMode);
-    if(p.respFio2) respLines.push("FiO2: " + p.respFio2 + "%");
-    if(p.respSettings) respLines.push("Support: " + p.respSettings);
-    if(p.respPeep) respLines.push("PEEP: " + p.respPeep);
-    if(p.workupRespCxr) respLines.push("CXR: " + p.workupRespCxr);
-    if(p.workupRespChestCt) respLines.push("Chest CT: " + p.workupRespChestCt);
-    if(p.workupRespChestTube) respLines.push("Chest Tube: " + p.workupRespChestTube);
+    if(p.respFio2) respLines.push("FiO2 " + p.respFio2 + "%");
+    if(p.respSettings) respLines.push("Support " + p.respSettings);
+    if(p.respPeep) respLines.push("PEEP " + p.respPeep);
+    if(p.workupRespCxr) respLines.push("CXR " + p.workupRespCxr);
+    if(p.workupRespChestCt) respLines.push("Chest CT " + p.workupRespChestCt);
+    if(p.workupRespChestTube) respLines.push("Chest Tube " + p.workupRespChestTube);
     bulletSection("Resp", respLines);
 
-    bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
-    bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     var idLines = formattedAbxRows(p);
-    if(p.abxDuration) idLines.push("Duration: " + p.abxDuration);
-    if(p.abxStopDate) idLines.push("ASO/Stop date: " + formatDue(p.abxStopDate));
+    if(p.abxDuration) idLines.push("Duration " + p.abxDuration);
+    if(p.abxStopDate) idLines.push("ASO/Stop date " + formatDue(p.abxStopDate));
     if(today["abx-appropriate"]){
       var aspNote = p.itemNotes["abx-appropriate"];
       idLines.push("ASP rqd" + (aspNote ? " — " + aspNote : ""));
@@ -1945,44 +1957,43 @@
         if(c.site) bits.push(c.site);
         bits.push(c.status || "Pending");
         if(c.organism) bits.push(c.organism);
-        if(c.sens) bits.push("Sens: " + c.sens);
-        idLines.push("Culture — " + bits.join(" · "));
+        if(c.sens) bits.push("Sens " + c.sens);
+        idLines.push("Culture — " + bits.join(", "));
       });
     }
-    if(p.workupIdWbc) idLines.push("WBC: " + p.workupIdWbc);
-    if(p.workupIdTemp) idLines.push("Temp: " + p.workupIdTemp);
-    if(p.workupIdCrp) idLines.push("CRP: " + p.workupIdCrp);
-    if(p.workupIdProcalcitonin) idLines.push("Procalcitonin: " + p.workupIdProcalcitonin);
-    if(p.workupIdImaging) idLines.push("Imaging: " + p.workupIdImaging);
+    if(p.workupIdWbc) idLines.push("WBC " + p.workupIdWbc);
+    if(p.workupIdTemp) idLines.push("Temp " + p.workupIdTemp);
+    if(p.workupIdCrp) idLines.push("CRP " + p.workupIdCrp);
+    if(p.workupIdProcalcitonin) idLines.push("Procalcitonin " + p.workupIdProcalcitonin);
+    if(p.workupIdImaging) idLines.push("Imaging " + p.workupIdImaging);
     bulletSection("ID", idLines);
 
     var glycemicLines = [];
-    if(p.workupGlycemicPocTrend) glycemicLines.push("POC Trend: " + p.workupGlycemicPocTrend);
-    if(p.a1cLevel) glycemicLines.push("A1C: " + p.a1cLevel);
-    if(p.a1cChanges) glycemicLines.push("Therapy: " + p.a1cChanges);
+    if(p.workupGlycemicPocTrend) glycemicLines.push("POC " + p.workupGlycemicPocTrend);
+    if(p.a1cLevel) glycemicLines.push("A1C " + p.a1cLevel);
+    if(p.a1cChanges) glycemicLines.push("Therapy " + p.a1cChanges);
     bulletSectionNoTitle(glycemicLines);
 
-    bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; }));
+    bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     var tdmLines = [];
-    if(p.tdmAgent) tdmLines.push("Agent: " + p.tdmAgent);
-    if(p.tdmTarget) tdmLines.push("Target: " + p.tdmTarget);
-    if(p.tdmFrequency) tdmLines.push("Frequency: " + p.tdmFrequency);
-    if(p.tdmNextTrough) tdmLines.push("Next trough due: " + formatDateTime(p.tdmNextTrough));
+    if(p.tdmAgent) tdmLines.push("Agent " + p.tdmAgent);
+    if(p.tdmTarget) tdmLines.push("Target " + p.tdmTarget);
+    if(p.tdmFrequency) tdmLines.push("Frequency " + p.tdmFrequency);
+    if(p.tdmNextTrough) tdmLines.push("Next trough due " + formatDateTime(p.tdmNextTrough));
     bulletSection("TDM", tdmLines);
 
     bulletSectionNoTitle([p.itemNotes.vte || "VTE px"]);
 
     var otherLines = [];
-    if(p.workupOtherSmoker) otherLines.push("Smoker: " + p.workupOtherSmoker);
-    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered: " + p.workupOtherNrt);
-    if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage: " + p.workupOtherDrugCoverage);
+    if(p.workupOtherSmoker) otherLines.push("Smoker " + p.workupOtherSmoker);
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered " + p.workupOtherNrt);
+    if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage " + p.workupOtherDrugCoverage);
     bulletSectionNoTitle(otherLines);
 
-    bulletSection("Med Rec", [p.coreChecks.medrec ? "Done" : "☐ Med rec"]);
     textSection("Home Meds", p.workupHomeMeds);
 
-    out.push("TO DO");
+    out.push("To Do");
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
     if(openTasks.length){
       openTasks.forEach(function(t){
