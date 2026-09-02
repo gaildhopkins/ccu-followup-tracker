@@ -373,6 +373,7 @@
         "workupCvGeneral", "workupCvRhythm", "workupCvRate", "workupCvBp", "workupCvEdemaGrade", "workupCvEdemaSite",
         "workupCvTni", "workupCvBnp", "workupCvLdl", "workupCvLactate", "workupCvEcho", "workupCvEcg", "workupCvAngio",
         "workupRespGeneral", "workupRespCxr", "workupRespChestCt", "workupRespChestTube",
+        "workupGasPh", "workupGasPco2", "workupGasHco3", "workupGasBe", "workupGasLactate", "workupGasNa", "workupGasK", "workupGasCl", "workupGasGlucose",
         "workupGiGeneral", "workupGiBowelMovement", "workupGiFms", "workupGiRoute", "workupGiLabs", "workupGiImaging",
         "workupGuGeneral", "workupGuBaselineCr", "workupGuUrineOutput", "workupGuCurrentCr", "workupGuImaging",
         "workupGuHd", "workupGuHdSchedule", "workupGuPd", "workupGuFoleyDate",
@@ -578,6 +579,20 @@
     { label: "Imaging", field: "workupNeuroImaging" },
     { label: "Plan", field: "workupNeuroPlan" },
   ];
+  // Most recent VBG (or ABG, if drawn) — a single snapshot like the rest of the workup fields,
+  // not a trended log. Core gas values first, then the electrolytes/glucose a point-of-care
+  // analyzer (e.g. i-STAT) usually reports alongside the gas.
+  var WORKUP_GAS_FIELDS = [
+    { label: "pH", field: "workupGasPh" },
+    { label: "pCO2", field: "workupGasPco2" },
+    { label: "HCO3", field: "workupGasHco3" },
+    { label: "BE", field: "workupGasBe" },
+    { label: "Lactate", field: "workupGasLactate" },
+    { label: "Na", field: "workupGasNa" },
+    { label: "K", field: "workupGasK" },
+    { label: "Cl", field: "workupGasCl" },
+    { label: "Glucose", field: "workupGasGlucose" },
+  ];
   var GI_MED_ROUTES = ["", "PO whole", "PO crush", "Weighted NG", "Large Bore NG", "OG", "PEG/J"];
   var WORKUP_GI_FIELDS = [
     { label: "General", field: "workupGiGeneral" },
@@ -676,6 +691,7 @@
       workupCvTni: "", workupCvBnp: "", workupCvLdl: "", workupCvLactate: "", workupCvEcho: "", workupCvEcg: "", workupCvAngio: "",
       cvHasHfref: "", cvHasHfpef: "", cvHasAf: "", cvHasAcs: "", cvAcsEfLt40: "",
       workupRespGeneral: "", workupRespCxr: "", workupRespChestCt: "", workupRespChestTube: "",
+      workupGasPh: "", workupGasPco2: "", workupGasHco3: "", workupGasBe: "", workupGasLactate: "", workupGasNa: "", workupGasK: "", workupGasCl: "", workupGasGlucose: "",
       workupGiGeneral: "", workupGiBowelMovement: "", workupGiFms: "", workupGiRoute: "", workupGiLabs: "", workupGiImaging: "",
       workupGuGeneral: "", workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuCurrentCr: "", workupGuImaging: "",
       workupGuHd: "", workupGuHdSchedule: "", workupGuPd: "", workupGuFoleyDate: "",
@@ -958,6 +974,10 @@
         '<div class="rounds-field"><label>PEEP</label><input type="number" value="' + escapeHtml(p.respPeep) + '" data-field="respPeep" data-pid="' + p.id + '" style="width:65px;"></div>' +
       '</div>' +
       workupFieldsRowHtml(p, [{ label: "CXR", field: "workupRespCxr" }, { label: "Chest CT", field: "workupRespChestCt" }, { label: "Chest Tube", field: "workupRespChestTube" }]);
+
+    html += '<div class="workup-subtitle">Blood Gas</div>' +
+      workupFieldsRowHtml(p, WORKUP_GAS_FIELDS.slice(0, 5)) +
+      workupFieldsRowHtml(p, WORKUP_GAS_FIELDS.slice(5));
 
     html += '<div class="workup-subtitle">GI</div>' + workupFieldsRowHtml(p, WORKUP_GI_FIELDS);
 
@@ -1563,6 +1583,9 @@
     if(p.workupRespChestTube) respBits.push("Chest tube: " + p.workupRespChestTube);
     if(respBits.length) lines.push({ label: "Resp", value: respBits.join(" · ") });
 
+    var gasBits = WORKUP_GAS_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
+    if(gasBits.length) lines.push({ label: "Blood Gas", value: gasBits.join(" · ") });
+
     var giBits = WORKUP_GI_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGiGeneral"); }).map(function(f){ return f.label + ": " + p[f.field]; });
     if(giBits.length) lines.push({ label: "GI", value: giBits.join(" · ") });
 
@@ -1734,13 +1757,13 @@
 
     function textSection(title, text){
       if(!text) return "";
-      return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><p style="white-space:pre-wrap; margin:0;">' + escapeHtml(text) + '</p></div>';
+      return '<div class="print-section"><h2>' + escapeHtml(title + ":") + '</h2><p style="white-space:pre-wrap; margin:0;">' + escapeHtml(text) + '</p></div>';
     }
     // One compact line per section (fields joined by ", "), matching the Monitoring row style
     // used in the Daily Rounds report, rather than a separate line for every single field.
     function bulletSection(title, lines){
       if(!lines.length) return "";
-      return '<div class="print-section"><h2>' + escapeHtml(title) + '</h2><p style="margin:0;">' + escapeHtml(lines.join(", ")) + '</p></div>';
+      return '<div class="print-section"><h2>' + escapeHtml(title + ":") + '</h2><p style="margin:0;">' + escapeHtml(lines.join(", ")) + '</p></div>';
     }
     // Same as bulletSection but without the category heading (POC/Safety/Other read fine as a
     // bare line without a label repeating what the content already says).
@@ -1793,6 +1816,8 @@
     if(p.workupRespChestCt) respLines.push("Chest CT " + p.workupRespChestCt);
     if(p.workupRespChestTube) respLines.push("Chest Tube " + p.workupRespChestTube);
     html += bulletSection("Resp", respLines);
+
+    html += bulletSection("Blood Gas", WORKUP_GAS_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
@@ -1848,7 +1873,7 @@
     html += textSection("Home Meds", p.workupHomeMeds);
 
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
-    html += '<div class="print-section"><h2>To Do</h2>';
+    html += '<div class="print-section"><h2>To Do:</h2>';
     if(openTasks.length){
       html += '<ul class="print-list">' + openTasks.map(function(t){
         return '<li>' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(due ' + formatDue(t.due) + ')</span>' : '') + (t.priority === "urgent" ? ' <span class="print-dim">[Urgent]</span>' : '') + '</li>';
@@ -1879,14 +1904,14 @@
 
     function textSection(title, text){
       if(!text) return;
-      out.push(title);
+      out.push(title + ":");
       out.push(text);
     }
     // One compact line per section (fields joined by ", "), matching the Monitoring row style
     // used in the Daily Rounds report, rather than a separate line for every single field.
     function bulletSection(title, lines){
       if(!lines.length) return;
-      out.push(title + " " + lines.join(", "));
+      out.push(title + ": " + lines.join(", "));
     }
     // Same as bulletSection but without the category heading (POC/Safety/Other read fine as a
     // bare line without a label repeating what the content already says).
@@ -1939,6 +1964,8 @@
     if(p.workupRespChestCt) respLines.push("Chest CT " + p.workupRespChestCt);
     if(p.workupRespChestTube) respLines.push("Chest Tube " + p.workupRespChestTube);
     bulletSection("Resp", respLines);
+
+    bulletSection("Blood Gas", WORKUP_GAS_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
@@ -1993,7 +2020,7 @@
 
     textSection("Home Meds", p.workupHomeMeds);
 
-    out.push("To Do");
+    out.push("To Do:");
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
     if(openTasks.length){
       openTasks.forEach(function(t){
