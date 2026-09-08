@@ -253,6 +253,7 @@
       <div class="add-patient-row">
         <input type="text" id="rp-name" placeholder="Name / Initials" style="flex:2; min-width:130px;">
         <input type="text" id="rp-room" placeholder="Room / Bed" style="flex:1; min-width:90px;">
+        <input type="number" id="rp-age" placeholder="Age" style="flex:0.6; min-width:70px;">
         <input type="text" id="rp-dx" placeholder="Diagnosis / RFA" style="flex:2; min-width:150px;">
         <input type="number" id="rp-ef" placeholder="EF %" style="flex:0 0 80px;">
         <select id="rp-unit" style="flex:0 0 170px;">
@@ -335,15 +336,18 @@
       if(!p.focus) p.focus = {};
       if(p.crcl === undefined) p.crcl = "";
       if(p.tdmAgent === undefined) p.tdmAgent = "";
+      if(p.tdmLevel === undefined) p.tdmLevel = "";
       if(p.tdmNextTrough === undefined) p.tdmNextTrough = "";
       if(p.tdmTarget === undefined) p.tdmTarget = "";
       if(p.tdmFrequency === undefined) p.tdmFrequency = "";
       if(!p.itemNotes) p.itemNotes = {};
       if(p.a1cLevel === undefined) p.a1cLevel = "";
       if(p.a1cChanges === undefined) p.a1cChanges = "";
+      if(p.workupGlycemicAtTarget === undefined) p.workupGlycemicAtTarget = "";
       if(!p.checksByDate) p.checksByDate = {};
       if(!p.coreChecks) p.coreChecks = {};
       if(p.dx === undefined) p.dx = "";
+      if(p.age === undefined) p.age = "";
       if(p.ef === undefined) p.ef = "";
       if(!p.ivpoRows) p.ivpoRows = [];
       if(!p.abxRows) p.abxRows = [];
@@ -368,18 +372,18 @@
       }
 
       if(p.cvAcsEfLt40 === undefined) p.cvAcsEfLt40 = "";
-      ["workupPresenting", "workupPmh", "workupInfusionsOther",
+      ["workupPmh", "workupInfusionsOther",
         "workupNeuroGeneral", "workupNeuroRass", "workupNeuroGcs", "workupNeuroLimb", "workupNeuroImaging", "workupNeuroPlan",
-        "workupCvGeneral", "workupCvRhythm", "workupCvRate", "workupCvBp", "workupCvEdemaGrade", "workupCvEdemaSite",
+        "workupCvGeneral", "workupCvRhythm", "workupCvBp", "workupCvEdemaGrade", "workupCvEdemaSite",
         "workupCvTni", "workupCvBnp", "workupCvLdl", "workupCvLactate", "workupCvEcho", "workupCvEcg", "workupCvAngio",
         "workupRespGeneral", "workupRespCxr", "workupRespChestCt", "workupRespChestTube",
-        "workupGasPh", "workupGasPco2", "workupGasHco3", "workupGasBe", "workupGasLactate", "workupGasNa", "workupGasK", "workupGasCl", "workupGasGlucose",
         "workupGiGeneral", "workupGiBowelMovement", "workupGiFms", "workupGiRoute", "workupGiLabs", "workupGiImaging",
-        "workupGuGeneral", "workupGuBaselineCr", "workupGuUrineOutput", "workupGuCurrentCr", "workupGuImaging",
+        "workupGuGeneral", "workupGuBaselineCr", "workupGuUrineOutput", "workupGuBalance", "workupGuCurrentCr", "workupGuImaging",
         "workupGuHd", "workupGuHdSchedule", "workupGuPd", "workupGuFoleyDate",
         "workupIdWbc", "workupIdTemp", "workupIdCrp", "workupIdProcalcitonin", "workupIdImaging", "workupGlycemicPocTrend",
         "workupHemeCurrent", "workupHemeBaseline", "workupHemeIron", "workupHemePlt", "workupHemeTreatment",
         "workupOtherSmoker", "workupOtherNrt", "workupOtherDrugCoverage",
+        "workupSafetyElectrolyteProtocol", "workupSafetyExclusion",
         "workupHomeMeds"].forEach(function(f){ if(p[f] === undefined) p[f] = ""; });
 
       // Migrate legacy single free-text workup fields (from before the head-to-toe consolidation
@@ -461,10 +465,10 @@
   var ROUNDS_CORE_ITEMS = [
     { id: "medrec", t: "Med rec", n: "Home med list reconciled vs current orders" },
     { id: "vte", t: "VTE prophylaxis", n: "Check bleeding/renal contraindication; document if held" },
-    { id: "renaldose", t: "Review renal dosing", n: "Adjust for current CrCl" },
+    { id: "renaldose", t: "Renal dosing verified", n: "Adjust for current CrCl" },
   ];
 
-  var IV_PO_DRUG_CLASSES = ["", "PPI/H2 blocker", "Antiepileptic", "Antibiotic", "Analgesic/Opioid", "Antihypertensive", "Thyroid replacement", "Psychiatric medication", "Other"];
+  var IV_PO_DRUG_CLASSES = ["", "PPI/H2 blocker", "Antiepileptic", "Antibiotic", "Analgesic/Opioid", "Antihypertensive", "Furosemide", "Thyroid replacement", "Psychiatric medication", "Other"];
   var IV_ANTIBIOTICS = ["", "Cefazolin", "Ceftazidime", "Ceftriaxone", "Clindamycin", "Piperacillin/Tazobactam", "Ampicillin/Sulbactam", "Meropenem", "Ertapenem", "Vancomycin", "Ciprofloxacin", "Levofloxacin", "Moxifloxacin", "Metronidazole", "Daptomycin", "Other"];
   var ABX_ROWS_MAX = 3;
   var CULTURE_SITES = ["", "Blood", "Urine", "Sputum", "BAL", "Wound", "Lines", "Abscess/Drain"];
@@ -480,15 +484,18 @@
       { id: "ivm-propofol", t: "Propofol", unit: "mcg/kg/min" },
       { id: "ivm-fentanyl", t: "Fentanyl", unit: "mcg/hr" },
       { id: "ivm-dex", t: "Dexmedetomidine", unit: "mcg/kg/hr" },
+      { id: "ivm-ketamine", t: "Ketamine", unit: "mg/kg/hr" },
+      { id: "ivm-midazolam", t: "Midazolam", unit: "mg/hr" },
     ]},
-    { label: "Vasopressors", items: [
+    { label: "Vasopressor/Inotrope", items: [
       { id: "ivm-norepi", t: "Norepinephrine", unit: "mcg/kg/min" },
       { id: "ivm-vaso", t: "Vasopressin", unit: "units/hr" },
+      { id: "ivm-milrinone", t: "Milrinone", unit: "mcg/kg/min" },
+      { id: "ivm-dobut", t: "Dobutamine", unit: "mcg/kg/min" },
     ]},
     { label: "Cardiac", items: [
       { id: "ivm-amio", t: "Amiodarone", unit: "mg/min" },
-      { id: "ivm-milrinone", t: "Milrinone", unit: "mcg/kg/min" },
-      { id: "ivm-dobut", t: "Dobutamine", unit: "mcg/kg/min" },
+      { id: "ivm-iso", t: "Isoproterenol", unit: "mcg/min" },
       { id: "ivm-ntg", t: "Nitroglycerin", unit: "mcg/min" },
       { id: "ivm-heparin", t: "Heparin", unit: "units/hr" },
       { id: "ivm-furosemide", t: "Furosemide", unit: "mg/hr" },
@@ -499,6 +506,7 @@
       { id: "ivm-ns", t: "NS", unit: "mL/hr" },
       { id: "ivm-d5", t: "D5", unit: "mL/hr" },
       { id: "ivm-d5ns", t: "D5NS", unit: "mL/hr" },
+      { id: "ivm-fluid-other", t: "Other", unit: "mL/hr" },
     ]},
   ];
   var ALL_IV_MEDS_ITEMS = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(g.items); }, []);
@@ -559,7 +567,6 @@
   var WORKUP_CV_FIELDS = [
     { label: "General", field: "workupCvGeneral" },
     { label: "Rhythm", field: "workupCvRhythm" },
-    { label: "Rate", field: "workupCvRate" },
     { label: "BP", field: "workupCvBp" },
     { label: "Edema", field: "workupCvEdemaGrade", options: CV_EDEMA_GRADES },
     { label: "Edema Site", field: "workupCvEdemaSite" },
@@ -567,8 +574,8 @@
     { label: "LDL", field: "workupCvLdl" },
     { label: "Lactate", field: "workupCvLactate" },
     { label: "BNP", field: "workupCvBnp" },
-    { label: "Echo", field: "workupCvEcho" },
     { label: "Angio", field: "workupCvAngio" },
+    { label: "Echo", field: "workupCvEcho" },
     { label: "ECG", field: "workupCvEcg" },
   ];
   var WORKUP_NEURO_FIELDS = [
@@ -578,20 +585,6 @@
     { label: "Limb Movement", field: "workupNeuroLimb" },
     { label: "Imaging", field: "workupNeuroImaging" },
     { label: "Plan", field: "workupNeuroPlan" },
-  ];
-  // Most recent VBG (or ABG, if drawn) — a single snapshot like the rest of the workup fields,
-  // not a trended log. Core gas values first, then the electrolytes/glucose a point-of-care
-  // analyzer (e.g. i-STAT) usually reports alongside the gas.
-  var WORKUP_GAS_FIELDS = [
-    { label: "pH", field: "workupGasPh" },
-    { label: "pCO2", field: "workupGasPco2" },
-    { label: "HCO3", field: "workupGasHco3" },
-    { label: "BE", field: "workupGasBe" },
-    { label: "Lactate", field: "workupGasLactate" },
-    { label: "Na", field: "workupGasNa" },
-    { label: "K", field: "workupGasK" },
-    { label: "Cl", field: "workupGasCl" },
-    { label: "Glucose", field: "workupGasGlucose" },
   ];
   var GI_MED_ROUTES = ["", "PO whole", "PO crush", "Weighted NG", "Large Bore NG", "OG", "PEG/J"];
   var WORKUP_GI_FIELDS = [
@@ -617,10 +610,11 @@
     { label: "Baseline Cr", field: "workupGuBaselineCr" },
     { label: "CrCl", field: "crcl" },
     { label: "Urine Output", field: "workupGuUrineOutput" },
+    { label: "Balance", field: "workupGuBalance" },
+    { label: "Foley Date", field: "workupGuFoleyDate", type: "date" },
     { label: "Hemodialysis", field: "workupGuHd", options: GU_YN_OPTIONS },
     { label: "Schedule", field: "workupGuHdSchedule", options: GU_HD_SCHEDULE_OPTIONS, showIf: function(p){ return p.workupGuHd === "Y"; } },
     { label: "PD", field: "workupGuPd", options: GU_YN_OPTIONS },
-    { label: "Foley Date", field: "workupGuFoleyDate", type: "date" },
     { label: "Imaging", field: "workupGuImaging" },
   ];
   var WORKUP_HEME_FIELDS = [
@@ -628,7 +622,7 @@
     { label: "Baseline", field: "workupHemeBaseline" },
     { label: "Iron Studies", field: "workupHemeIron" },
     { label: "Platelets", field: "workupHemePlt" },
-    { label: "Treatment", field: "workupHemeTreatment" },
+    { label: "Treatment Required?", field: "workupHemeTreatment", options: OTHER_YN_OPTIONS },
   ];
   var openWorkupSections = {};
 
@@ -673,35 +667,36 @@
   function addPatient(){
     var nameEl = document.getElementById("rp-name");
     var roomEl = document.getElementById("rp-room");
+    var ageEl = document.getElementById("rp-age");
     var dxEl = document.getElementById("rp-dx");
     var efEl = document.getElementById("rp-ef");
     var unitEl = document.getElementById("rp-unit");
     var name = nameEl.value.trim();
     if(!name) return;
     var p = {
-      id: uid(), name: name, room: roomEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
+      id: uid(), name: name, room: roomEl.value.trim(), age: ageEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
       unit: unitEl.value, tasks: [], focus: {}, crcl: "", coreChecks: {},
-      tdmAgent: "", tdmNextTrough: "", tdmTarget: "", tdmFrequency: "", a1cLevel: "", a1cChanges: "",
+      tdmAgent: "", tdmLevel: "", tdmNextTrough: "", tdmTarget: "", tdmFrequency: "", a1cLevel: "", a1cChanges: "", workupGlycemicAtTarget: "",
       itemNotes: {}, checksByDate: {},
       ivpoRows: [], abxRows: [], abxStopDate: "", abxDuration: "", cultures: [], respMode: "", respFio2: "", respFlowRate: "", respPeep: "", respSettings: "",
       infusionsActive: false,
-      workupPresenting: "", workupPmh: "", workupInfusionsOther: "",
+      workupPmh: "", workupInfusionsOther: "",
       workupNeuroGeneral: "", workupNeuroRass: "", workupNeuroGcs: "", workupNeuroLimb: "", workupNeuroImaging: "", workupNeuroPlan: "",
-      workupCvGeneral: "", workupCvRhythm: "", workupCvRate: "", workupCvBp: "", workupCvEdemaGrade: "", workupCvEdemaSite: "",
+      workupCvGeneral: "", workupCvRhythm: "", workupCvBp: "", workupCvEdemaGrade: "", workupCvEdemaSite: "",
       workupCvTni: "", workupCvBnp: "", workupCvLdl: "", workupCvLactate: "", workupCvEcho: "", workupCvEcg: "", workupCvAngio: "",
       cvHasHfref: "", cvHasHfpef: "", cvHasAf: "", cvHasAcs: "", cvAcsEfLt40: "",
       workupRespGeneral: "", workupRespCxr: "", workupRespChestCt: "", workupRespChestTube: "",
-      workupGasPh: "", workupGasPco2: "", workupGasHco3: "", workupGasBe: "", workupGasLactate: "", workupGasNa: "", workupGasK: "", workupGasCl: "", workupGasGlucose: "",
       workupGiGeneral: "", workupGiBowelMovement: "", workupGiFms: "", workupGiRoute: "", workupGiLabs: "", workupGiImaging: "",
-      workupGuGeneral: "", workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuCurrentCr: "", workupGuImaging: "",
+      workupGuGeneral: "", workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuBalance: "", workupGuCurrentCr: "", workupGuImaging: "",
       workupGuHd: "", workupGuHdSchedule: "", workupGuPd: "", workupGuFoleyDate: "",
       workupIdOnAbx: "", workupIdWbc: "", workupIdTemp: "", workupIdCrp: "", workupIdProcalcitonin: "", workupIdImaging: "", workupGlycemicPocTrend: "",
       workupHemeCurrent: "", workupHemeBaseline: "", workupHemeIron: "", workupHemePlt: "", workupHemeTreatment: "",
       workupOtherSmoker: "", workupOtherNrt: "", workupOtherDrugCoverage: "",
+      workupSafetyElectrolyteProtocol: "", workupSafetyExclusion: "",
       workupHomeMeds: ""
     };
     state.patients.unshift(p);
-    nameEl.value = ""; roomEl.value = ""; dxEl.value = ""; efEl.value = "";
+    nameEl.value = ""; roomEl.value = ""; ageEl.value = ""; dxEl.value = ""; efEl.value = "";
     saveState();
     renderPatients();
   }
@@ -912,7 +907,6 @@
     var prev = getPrevChecks(p);
 
     var html = "";
-    html += workupTextareaHtml(p, "Presenting Complaint / Why Admitted", "workupPresenting");
     html += workupTextareaHtml(p, "Past Medical History", "workupPmh");
 
     html += '<div class="workup-subtitle">Infusions</div>' +
@@ -937,8 +931,9 @@
     html += '<div class="workup-subtitle">Neuro</div>' + workupFieldsRowHtml(p, WORKUP_NEURO_FIELDS);
 
     html += '<div class="workup-subtitle">CV</div>' +
-      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(0, 6)) +
-      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(6)) +
+      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(0, 5)) +
+      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(5, 9)) +
+      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(9)) +
       '<div class="iv-groups-row" style="margin-top:6px;">' +
         CV_CHECK_GROUPS.map(function(g){
           var has = p[g.toggleField] === "Y";
@@ -975,17 +970,11 @@
       '</div>' +
       workupFieldsRowHtml(p, [{ label: "CXR", field: "workupRespCxr" }, { label: "Chest CT", field: "workupRespChestCt" }, { label: "Chest Tube", field: "workupRespChestTube" }]);
 
-    html += '<div class="workup-subtitle">Blood Gas</div>' +
-      workupFieldsRowHtml(p, WORKUP_GAS_FIELDS.slice(0, 5)) +
-      workupFieldsRowHtml(p, WORKUP_GAS_FIELDS.slice(5));
-
     html += '<div class="workup-subtitle">GI</div>' + workupFieldsRowHtml(p, WORKUP_GI_FIELDS);
 
-    var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
     html += '<div class="workup-subtitle">GU</div>' +
-      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(0, 8)) +
-      roundsItemHtml(p.id, renaldoseItem, !!p.coreChecks[renaldoseItem.id], false, p.itemNotes, "-gu") +
-      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(8));
+      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(0, 7)) +
+      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(7));
 
     var idAppropriateItem = ABX_ITEMS[0];
     html += '<div class="workup-subtitle">ID</div>' +
@@ -1013,6 +1002,9 @@
         '<div class="rounds-field"><label>POC Trend</label><input type="text" value="' + escapeHtml(p.workupGlycemicPocTrend) + '" data-field="workupGlycemicPocTrend" data-pid="' + p.id + '" style="width:170px;"></div>' +
         '<div class="rounds-field"><label>A1C</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:65px;"></div>' +
         '<div class="rounds-field" style="flex:1; min-width:180px;"><label>Therapy</label><input type="text" value="' + escapeHtml(p.a1cChanges) + '" data-field="a1cChanges" data-pid="' + p.id + '" style="width:100%;"></div>' +
+        '<div class="rounds-field"><label>At Target?</label><select data-field="workupGlycemicAtTarget" data-pid="' + p.id + '">' +
+          OTHER_YN_OPTIONS.map(function(o){ return '<option value="' + o + '"' + (p.workupGlycemicAtTarget === o ? " selected" : "") + '>' + (o || "— Select —") + '</option>'; }).join("") +
+        '</select></div>' +
       '</div>';
 
     html += '<div class="workup-subtitle">Hgb</div>' + workupFieldsRowHtml(p, WORKUP_HEME_FIELDS);
@@ -1022,17 +1014,23 @@
         '<div class="rounds-field"><label>Agent</label><select data-field="tdmAgent" data-pid="' + p.id + '">' +
           TDM_AGENTS.map(function(a){ return '<option value="' + a + '"' + (p.tdmAgent === a ? " selected" : "") + '>' + (a || "— Select —") + '</option>'; }).join("") +
         '</select></div>' +
-        '<div class="rounds-field"><label>Next Trough Due</label><input type="datetime-local" value="' + escapeHtml(p.tdmNextTrough) + '" data-field="tdmNextTrough" data-pid="' + p.id + '" style="width:190px;"></div>' +
+        '<div class="rounds-field"><label>Level</label><input type="text" value="' + escapeHtml(p.tdmLevel) + '" data-field="tdmLevel" data-pid="' + p.id + '" placeholder="or Pending" style="width:100px;"></div>' +
+        '<div class="rounds-field"><label>Date</label><input type="datetime-local" value="' + escapeHtml(p.tdmNextTrough) + '" data-field="tdmNextTrough" data-pid="' + p.id + '" style="width:190px;"></div>' +
         '<div class="rounds-field"><label>Target Level</label><input type="text" value="' + escapeHtml(p.tdmTarget) + '" data-field="tdmTarget" data-pid="' + p.id + '" style="width:110px;"></div>' +
         '<div class="rounds-field"><label>Monitoring Frequency</label><input type="text" value="' + escapeHtml(p.tdmFrequency) + '" data-field="tdmFrequency" data-pid="' + p.id + '" style="width:170px;"></div>' +
       '</div>' +
       '<button type="button" class="btn small secondary" data-tdm-note="' + p.id + '" style="margin:8px 0;">Generate TDM Consult Note</button>';
 
-    var safetyItems = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; });
+    var safetyItemIds = ["vte", "renaldose"];
+    var safetyItems = safetyItemIds.map(function(id){ return ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === id; })[0]; }).filter(Boolean);
     html += '<div class="workup-subtitle">Safety</div>' +
       safetyItems.map(function(item){
         return roundsItemHtml(p.id, item, !!p.coreChecks[item.id], false, p.itemNotes, "-safety");
-      }).join("");
+      }).join("") +
+      workupFieldsRowHtml(p, [
+        { label: "Electrolyte Protocol", field: "workupSafetyElectrolyteProtocol", options: OTHER_YN_OPTIONS },
+        { label: "Exclusion Criteria", field: "workupSafetyExclusion", placeholder: "e.g. UOP <20mL/hr, Cr >200, dialysis", showIf: function(p){ return p.workupSafetyElectrolyteProtocol === "Y"; } },
+      ]);
 
     html += '<div class="workup-subtitle">Other</div>' +
       workupFieldsRowHtml(p, WORKUP_OTHER_FIELDS) +
@@ -1187,7 +1185,7 @@
   // Formerly-"Core Review" items now live inline in their clinical section (Med Rec next to Home
   // Meds, VTE under Safety, Renal Dose Review under GU) — this maps each to that area so generated
   // follow-up text reflects where it's actually found on the card.
-  var CORE_ITEM_AREAS = { medrec: "Home Meds", vte: "Safety", renaldose: "GU" };
+  var CORE_ITEM_AREAS = { medrec: "Home Meds", vte: "Safety", renaldose: "Safety" };
   function addFollowUpsForUnchecked(pid){
     var p = state.patients.find(function(p){ return p.id === pid; });
     if(!p) return;
@@ -1273,6 +1271,33 @@
       }
     }
 
+    // POC not at target needs follow-up; at target does not.
+    if(p.workupGlycemicAtTarget === "N"){
+      var pocSourceId = "poc-attarget";
+      if(openSourceIds.indexOf(pocSourceId) === -1){
+        p.tasks.push({ id: uid(), text: "Not at target", area: "POC", due: "", priority: "routine", done: false, sourceItem: pocSourceId });
+        added++;
+      }
+    }
+
+    // Hgb treatment required needs follow-up; not required does not.
+    if(p.workupHemeTreatment === "Y"){
+      var hgbSourceId = "hgb-treatment";
+      if(openSourceIds.indexOf(hgbSourceId) === -1){
+        p.tasks.push({ id: uid(), text: "Treatment required", area: "Hgb", due: "", priority: "routine", done: false, sourceItem: hgbSourceId });
+        added++;
+      }
+    }
+
+    // A TDM level still pending needs a follow-up to check back once resulted.
+    if(p.tdmLevel && p.tdmLevel.trim().toLowerCase() === "pending"){
+      var tdmSourceId = "tdm-level-pending";
+      if(openSourceIds.indexOf(tdmSourceId) === -1){
+        p.tasks.push({ id: uid(), text: (p.tdmAgent ? p.tdmAgent + " level" : "Level") + " pending", area: "TDM", due: "", priority: "routine", done: false, sourceItem: tdmSourceId });
+        added++;
+      }
+    }
+
     if(added === 0){
       alert("Nothing to add — all reviewed items are checked, or already have an open follow-up.");
       return;
@@ -1321,6 +1346,7 @@
         '<div>' +
           '<span class="patient-name">' + escapeHtml(p.name) + '</span>' +
           (p.room ? '<span class="patient-meta"> Room ' + escapeHtml(p.room) + '</span>' : '') +
+          (p.age ? '<span class="patient-meta"> · Age ' + escapeHtml(p.age) + '</span>' : '') +
           (p.dx ? '<span class="patient-meta"> · ' + escapeHtml(p.dx) + '</span>' : '') +
           (p.ef ? '<span class="patient-meta"> · EF ' + escapeHtml(p.ef) + '%</span>' : '') +
         '</div>' +
@@ -1332,6 +1358,7 @@
       '<div class="task-list" id="tasks-' + p.id + '">' +
         '<div class="rounds-head-row">' +
           '<div class="rounds-field"><label>Room</label><input type="text" value="' + escapeHtml(p.room) + '" data-field="room" data-pid="' + p.id + '" style="width:80px;"></div>' +
+          '<div class="rounds-field"><label>Age</label><input type="number" value="' + escapeHtml(p.age) + '" data-field="age" data-pid="' + p.id + '" style="width:65px;"></div>' +
           '<div class="rounds-field"><label>Diagnosis</label><input type="text" value="' + escapeHtml(p.dx) + '" data-field="dx" data-pid="' + p.id + '" style="width:200px;"></div>' +
           '<div class="rounds-field"><label>EF %</label><input type="number" value="' + escapeHtml(p.ef) + '" data-field="ef" data-pid="' + p.id + '" style="width:70px;"></div>' +
           '<div class="rounds-field"><label>Unit</label><select data-field="unit" data-pid="' + p.id + '">' +
@@ -1583,14 +1610,10 @@
     if(p.workupRespChestTube) respBits.push("Chest tube: " + p.workupRespChestTube);
     if(respBits.length) lines.push({ label: "Resp", value: respBits.join(" · ") });
 
-    var gasBits = WORKUP_GAS_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    if(gasBits.length) lines.push({ label: "Blood Gas", value: gasBits.join(" · ") });
-
     var giBits = WORKUP_GI_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGiGeneral"); }).map(function(f){ return f.label + ": " + p[f.field]; });
     if(giBits.length) lines.push({ label: "GI", value: giBits.join(" · ") });
 
     var guBits = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGuGeneral"); }).map(function(f){ return f.label + ": " + p[f.field]; });
-    if(p.coreChecks.renaldose) guBits.push("✓ Review renal dosing");
     if(guBits.length) lines.push({ label: "GU", value: guBits.join(" · ") });
 
     var abxBits = formattedAbxRows(p);
@@ -1617,23 +1640,29 @@
     if(p.workupGlycemicPocTrend) glycemicBits.push("POC " + p.workupGlycemicPocTrend);
     if(p.a1cLevel) glycemicBits.push("A1C " + p.a1cLevel);
     if(p.a1cChanges) glycemicBits.push("Therapy: " + p.a1cChanges);
+    if(p.workupGlycemicAtTarget) glycemicBits.push("At Target: " + p.workupGlycemicAtTarget);
     if(glycemicBits.length) lines.push({ label: "POC", value: glycemicBits.join(" · ") });
 
     var hemeBits = WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
     if(hemeBits.length) lines.push({ label: "Hgb", value: hemeBits.join(" · ") });
 
-    if(p.tdmAgent || p.tdmTarget || p.tdmNextTrough){
+    if(p.tdmAgent || p.tdmLevel || p.tdmTarget || p.tdmNextTrough){
       var tdmBits = [];
       if(p.tdmAgent) tdmBits.push("Agent " + p.tdmAgent);
+      if(p.tdmLevel) tdmBits.push("Level " + p.tdmLevel);
+      if(p.tdmNextTrough) tdmBits.push("Date " + formatDateTime(p.tdmNextTrough));
       if(p.tdmTarget) tdmBits.push("target " + p.tdmTarget);
-      if(p.tdmNextTrough) tdmBits.push("next trough " + formatDateTime(p.tdmNextTrough));
       lines.push({ label: "TDM", value: tdmBits.length ? tdmBits.join(" · ") : "not yet specified" });
     }
 
+    var safetyBits = [];
     var vteNote = p.itemNotes.vte;
     if(p.coreChecks.vte || vteNote){
-      lines.push({ label: "Safety", value: (p.coreChecks.vte ? "✓ VTE prophylaxis" : "☐ VTE prophylaxis") + (vteNote ? " — " + vteNote : "") });
+      safetyBits.push((p.coreChecks.vte ? "✓ VTE prophylaxis" : "☐ VTE prophylaxis") + (vteNote ? " — " + vteNote : ""));
     }
+    if(p.coreChecks.renaldose) safetyBits.push("✓ Renal dosing verified");
+    if(p.workupSafetyElectrolyteProtocol) safetyBits.push("Electrolyte Protocol: " + p.workupSafetyElectrolyteProtocol + (p.workupSafetyElectrolyteProtocol === "Y" && p.workupSafetyExclusion ? " — " + p.workupSafetyExclusion : ""));
+    if(safetyBits.length) lines.push({ label: "Safety", value: safetyBits.join(" · ") });
 
     var otherBits = [];
     if(p.workupOtherSmoker) otherBits.push("Smoker: " + p.workupOtherSmoker);
@@ -1665,6 +1694,7 @@
     html += '<div class="print-patient-name">' + escapeHtml(p.name) + ' <span class="print-dim">(' + UNIT_LABELS[p.unit] + ')</span></div>';
     var metaBits = [];
     if(p.room) metaBits.push("Room " + p.room);
+    if(p.age) metaBits.push("Age " + p.age);
     if(p.dx) metaBits.push(p.dx);
     if(p.ef) metaBits.push("EF " + p.ef + "%");
     if(metaBits.length) html += '<div class="print-patient-room">' + escapeHtml(metaBits.join(" · ")) + '</div>';
@@ -1787,8 +1817,13 @@
       });
     }
 
-    html += textSection("RFA", p.workupPresenting);
-    html += textSection("Hx", p.workupPmh);
+    var idBits = [];
+    if(p.room) idBits.push("Room " + p.room);
+    if(p.age) idBits.push("Age " + p.age);
+    if(p.dx) idBits.push(p.dx);
+    html += bulletSectionNoTitle(idBits);
+
+    html += bulletSection("Hx", p.workupPmh ? [p.workupPmh] : []);
 
     var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
     if(p.workupInfusionsOther) infusionLines.push("Other " + p.workupInfusionsOther);
@@ -1800,7 +1835,7 @@
     html += bulletSection("Neuro", neuroLines);
 
     html += bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
-      if(f.label === "Rhythm" || f.label === "Rate") return p[f.field];
+      if(f.label === "Rhythm") return p[f.field];
       return f.label + " " + p[f.field];
     }));
     CV_CHECK_GROUPS.forEach(function(g){
@@ -1816,8 +1851,6 @@
     if(p.workupRespChestCt) respLines.push("Chest CT " + p.workupRespChestCt);
     if(p.workupRespChestTube) respLines.push("Chest Tube " + p.workupRespChestTube);
     html += bulletSection("Resp", respLines);
-
-    html += bulletSection("Blood Gas", WORKUP_GAS_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
@@ -1851,18 +1884,24 @@
     if(p.workupGlycemicPocTrend) glycemicLines.push("POC " + p.workupGlycemicPocTrend);
     if(p.a1cLevel) glycemicLines.push("A1C " + p.a1cLevel);
     if(p.a1cChanges) glycemicLines.push("Therapy " + p.a1cChanges);
+    if(p.workupGlycemicAtTarget) glycemicLines.push("At Target " + p.workupGlycemicAtTarget);
     html += bulletSectionNoTitle(glycemicLines);
 
     html += bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     var tdmLines = [];
     if(p.tdmAgent) tdmLines.push("Agent " + p.tdmAgent);
+    if(p.tdmLevel) tdmLines.push("Level " + p.tdmLevel);
+    if(p.tdmNextTrough) tdmLines.push("Date " + formatDateTime(p.tdmNextTrough));
     if(p.tdmTarget) tdmLines.push("Target " + p.tdmTarget);
     if(p.tdmFrequency) tdmLines.push("Frequency " + p.tdmFrequency);
-    if(p.tdmNextTrough) tdmLines.push("Next trough due " + formatDateTime(p.tdmNextTrough));
     html += bulletSection("TDM", tdmLines);
 
-    html += bulletSectionNoTitle([p.itemNotes.vte || "VTE px"]);
+    var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
+    var safetyLines = [p.itemNotes.vte || "VTE px"];
+    safetyLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + renaldoseItem.t);
+    if(p.workupSafetyElectrolyteProtocol) safetyLines.push("Electrolyte Protocol " + p.workupSafetyElectrolyteProtocol + (p.workupSafetyElectrolyteProtocol === "Y" && p.workupSafetyExclusion ? " — " + p.workupSafetyExclusion : ""));
+    html += bulletSectionNoTitle(safetyLines);
 
     var otherLines = [];
     if(p.workupOtherSmoker) otherLines.push("Smoker " + p.workupOtherSmoker);
@@ -1935,8 +1974,13 @@
       });
     }
 
-    textSection("RFA", p.workupPresenting);
-    textSection("Hx", p.workupPmh);
+    var idBits = [];
+    if(p.room) idBits.push("Room " + p.room);
+    if(p.age) idBits.push("Age " + p.age);
+    if(p.dx) idBits.push(p.dx);
+    bulletSectionNoTitle(idBits);
+
+    bulletSection("Hx", p.workupPmh ? [p.workupPmh] : []);
 
     var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
     if(p.workupInfusionsOther) infusionLines.push("Other " + p.workupInfusionsOther);
@@ -1948,7 +1992,7 @@
     bulletSection("Neuro", neuroLines);
 
     bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
-      if(f.label === "Rhythm" || f.label === "Rate") return p[f.field];
+      if(f.label === "Rhythm") return p[f.field];
       return f.label + " " + p[f.field];
     }));
     CV_CHECK_GROUPS.forEach(function(g){
@@ -1964,8 +2008,6 @@
     if(p.workupRespChestCt) respLines.push("Chest CT " + p.workupRespChestCt);
     if(p.workupRespChestTube) respLines.push("Chest Tube " + p.workupRespChestTube);
     bulletSection("Resp", respLines);
-
-    bulletSection("Blood Gas", WORKUP_GAS_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
@@ -1999,18 +2041,24 @@
     if(p.workupGlycemicPocTrend) glycemicLines.push("POC " + p.workupGlycemicPocTrend);
     if(p.a1cLevel) glycemicLines.push("A1C " + p.a1cLevel);
     if(p.a1cChanges) glycemicLines.push("Therapy " + p.a1cChanges);
+    if(p.workupGlycemicAtTarget) glycemicLines.push("At Target " + p.workupGlycemicAtTarget);
     bulletSectionNoTitle(glycemicLines);
 
     bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
 
     var tdmLines = [];
     if(p.tdmAgent) tdmLines.push("Agent " + p.tdmAgent);
+    if(p.tdmLevel) tdmLines.push("Level " + p.tdmLevel);
+    if(p.tdmNextTrough) tdmLines.push("Date " + formatDateTime(p.tdmNextTrough));
     if(p.tdmTarget) tdmLines.push("Target " + p.tdmTarget);
     if(p.tdmFrequency) tdmLines.push("Frequency " + p.tdmFrequency);
-    if(p.tdmNextTrough) tdmLines.push("Next trough due " + formatDateTime(p.tdmNextTrough));
     bulletSection("TDM", tdmLines);
 
-    bulletSectionNoTitle([p.itemNotes.vte || "VTE px"]);
+    var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
+    var safetyLines = ["VTE px:" + (p.itemNotes.vte ? " " + p.itemNotes.vte : "")];
+    safetyLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + renaldoseItem.t);
+    if(p.workupSafetyElectrolyteProtocol) safetyLines.push("Electrolyte Protocol " + p.workupSafetyElectrolyteProtocol + (p.workupSafetyElectrolyteProtocol === "Y" && p.workupSafetyExclusion ? " — " + p.workupSafetyExclusion : ""));
+    bulletSectionNoTitle(safetyLines);
 
     var otherLines = [];
     if(p.workupOtherSmoker) otherLines.push("Smoker " + p.workupOtherSmoker);
@@ -2211,7 +2259,6 @@
     var crclCell = p.crcl ? escapeHtml(p.crcl) : "—";
     var dxCell = escapeHtml(p.dx || "—") + (p.ef ? ' <span class="print-dim">(EF ' + escapeHtml(p.ef) + '%)</span>' : '');
     var dxExtra = [];
-    if(p.workupPresenting) dxExtra.push("Presenting: " + escapeHtml(p.workupPresenting));
     if(p.workupPmh) dxExtra.push("PMH: " + escapeHtml(p.workupPmh));
     if(dxExtra.length) dxCell += '<div class="print-dim" style="margin-top:2px;">' + dxExtra.join('<br>') + '</div>';
     var focusParts = monitoringLines(p).map(function(l){ return "<div><strong>" + escapeHtml(l.label) + ":</strong> " + escapeHtml(l.value) + "</div>"; });
@@ -2227,7 +2274,7 @@
     '</div>';
 
     return '<tr>' +
-      '<td>' + escapeHtml(p.name) + '<div class="print-dim" style="margin-top:2px;">Room ' + escapeHtml(p.room || "—") + '</div>' + statusCell + '</td>' +
+      '<td>' + escapeHtml(p.name) + '<div class="print-dim" style="margin-top:2px;">Room ' + escapeHtml(p.room || "—") + (p.age ? " · Age " + escapeHtml(p.age) : "") + '</div>' + statusCell + '</td>' +
       '<td style="max-width:170px; word-wrap:break-word;">' + dxCell + '</td>' +
       '<td class="print-focus-cell">' + focusCell + '</td>' +
       '<td>' + todoCell + '</td>' +
