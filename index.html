@@ -465,7 +465,6 @@
     { id: "medrec", t: "Med rec", n: "Home med list reconciled vs current orders" },
     { id: "vte", t: "VTE prophylaxis", n: "Check bleeding/renal contraindication; document if held" },
     { id: "renaldose", t: "Renal dosing verified", n: "Adjust for current CrCl" },
-    { id: "electrolyteprotocol", t: "Electrolyte Protocol", n: "Contraindications: Cr > 200mmol/L, urine output < 20mL/hr or dialysis" },
   ];
 
   var IV_PO_DRUG_CLASSES = ["", "PPI/H2 blocker", "Antiepileptic", "Antibiotic", "Analgesic/Opioid", "Antihypertensive", "Furosemide", "Thyroid replacement", "Psychiatric medication", "Other"];
@@ -1099,13 +1098,11 @@
     var medrecItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "medrec"; })[0];
     var vteItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; })[0];
     var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
-    var electrolyteProtocolItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "electrolyteprotocol"; })[0];
     var idAppropriateItem = ABX_ITEMS[0];
 
     var html = roundsItemHtml(p.id, medrecItem, !!p.coreChecks[medrecItem.id], false, p.itemNotes, "-dc") +
       roundsItemHtml(p.id, vteItem, !!p.coreChecks[vteItem.id], false, p.itemNotes, "-dc") +
-      roundsItemHtml(p.id, renaldoseItem, !!p.coreChecks[renaldoseItem.id], false, p.itemNotes, "-dc") +
-      roundsItemHtml(p.id, electrolyteProtocolItem, !!p.coreChecks[electrolyteProtocolItem.id], false, p.itemNotes, "-dc");
+      roundsItemHtml(p.id, renaldoseItem, !!p.coreChecks[renaldoseItem.id], false, p.itemNotes, "-dc");
     if(p.workupIdOnAbx === "Y"){
       html += roundsItemHtml(p.id, idAppropriateItem, !!today[idAppropriateItem.id], !today[idAppropriateItem.id] && !!prev[idAppropriateItem.id], p.itemNotes, "-dc");
     }
@@ -1195,7 +1192,7 @@
   // Med Rec, VTE prophylaxis, Renal Dosing, and ASP review live in the standalone "Barriers to
   // D/C" checklist — this maps each to that area so generated follow-up text reflects where it's
   // actually found on the card.
-  var CORE_ITEM_AREAS = { medrec: "Barriers to D/C", vte: "Barriers to D/C", renaldose: "Barriers to D/C", electrolyteprotocol: "Barriers to D/C", "abx-appropriate": "Barriers to D/C" };
+  var CORE_ITEM_AREAS = { medrec: "Barriers to D/C", vte: "Barriers to D/C", renaldose: "Barriers to D/C", "abx-appropriate": "Barriers to D/C" };
   function addFollowUpsForUnchecked(pid){
     var p = state.patients.find(function(p){ return p.id === pid; });
     if(!p) return;
@@ -1650,20 +1647,32 @@
   // Home Meds) stay out of this quick summary and only appear in the full Workup Note.
   // Same head-to-toe order as the Initial Workup form: Infusions, Neuro, CV, Resp, GI, GU,
   // ID (Abx, Cultures, TDM, WBC/Temp — matching the ID section's internal order), Glycemic, Heme.
+  // opts.compact switches sub-field "Label: value" pairs to "Label value" (no colon) and the
+  // " · "/"; " join separators to ", " — matching the Workup Note's streamlined output style.
+  // Only the Daily Note opts in; the compact Daily Rounds report and Patient Summary PDF keep the
+  // original punctuation, since they were never part of that streamlining.
   function monitoringLines(p, opts){
     opts = opts || {};
+    var sep = opts.compact ? ", " : " · ";
+    var colon = opts.compact ? " " : ": ";
     var lines = [];
 
     var ivMedsBits = activeIvMeds(p);
     if(ivMedsBits.length) lines.push({ label: "Infusions", value: ivMedsBits.join(", ") });
 
-    var neuroBits = WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    if(neuroBits.length) lines.push({ label: "Neuro", value: neuroBits.join(" · ") });
+    var neuroBits = WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
+      if(opts.compact && f.label === "General") return p[f.field];
+      return f.label + colon + p[f.field];
+    });
+    if(neuroBits.length) lines.push({ label: "Neuro", value: neuroBits.join(sep) });
 
-    var cvBits = WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    if(cvBits.length) lines.push({ label: "CV", value: cvBits.join(" · ") });
+    var cvBits = WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
+      if(opts.compact && f.label === "Rhythm") return p[f.field];
+      return f.label + colon + p[f.field];
+    });
+    if(cvBits.length) lines.push({ label: "CV", value: cvBits.join(sep) });
     activeCvChecksByGroup(p).forEach(function(g){
-      lines.push({ label: g.shortLabel, value: g.entries.join(" · ") });
+      lines.push({ label: g.shortLabel, value: g.entries.join(sep) });
     });
 
     var respBits = [];
@@ -1671,75 +1680,76 @@
     if(p.respMode && !opts.omitRespMode) respBits.push(p.respMode);
     if(p.respFio2) respBits.push("FiO2 " + p.respFio2 + "%");
     if(p.respFlowRate) respBits.push("Flow " + p.respFlowRate);
-    if(p.respSettings) respBits.push("Support: " + p.respSettings);
+    if(p.respSettings) respBits.push("Support" + colon + p.respSettings);
     if(p.respPeep) respBits.push("PEEP " + p.respPeep);
-    if(p.workupRespCxr) respBits.push("CXR: " + p.workupRespCxr);
-    if(p.workupRespChestCt) respBits.push("Chest CT: " + p.workupRespChestCt);
-    if(p.workupRespChestTube) respBits.push("Chest tube: " + p.workupRespChestTube);
-    if(respBits.length) lines.push({ label: "Resp", value: respBits.join(" · ") });
+    if(p.workupRespCxr) respBits.push("CXR" + colon + p.workupRespCxr);
+    if(p.workupRespChestCt) respBits.push("Chest CT" + colon + p.workupRespChestCt);
+    if(p.workupRespChestTube) respBits.push("Chest tube" + colon + p.workupRespChestTube);
+    if(respBits.length) lines.push({ label: "Resp", value: respBits.join(sep) });
 
-    var giBits = WORKUP_GI_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGiGeneral"); }).map(function(f){ return f.label + ": " + p[f.field]; });
-    if(giBits.length) lines.push({ label: "GI", value: giBits.join(" · ") });
+    var giBits = WORKUP_GI_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGiGeneral"); }).map(function(f){ return f.label + colon + p[f.field]; });
+    if(giBits.length) lines.push({ label: "GI", value: giBits.join(sep) });
 
-    var guBits = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGuGeneral"); }).map(function(f){ return f.label + ": " + p[f.field]; });
-    if(guBits.length) lines.push({ label: "GU", value: guBits.join(" · ") });
+    var guBits = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGuGeneral"); }).map(function(f){ return f.label + colon + p[f.field]; });
+    if(guBits.length) lines.push({ label: "GU", value: guBits.join(sep) });
 
     var abxBits = formattedAbxRows(p);
     if(p.abxDuration) abxBits.push(p.abxDuration);
     if(p.abxStopDate) abxBits.push("ASO " + formatDue(p.abxStopDate));
-    if(abxBits.length) lines.push({ label: "Abx", value: abxBits.join(" · ") });
+    if(abxBits.length) lines.push({ label: "Abx", value: abxBits.join(sep) });
     if(p.cultures && p.cultures.length){
       var cxBits = p.cultures.map(function(c){
         var bits = [c.site || "Culture", c.status || "Pending"];
         if(c.organism) bits.push(c.organism);
         return bits.join(" ");
       });
-      lines.push({ label: "Cultures", value: cxBits.join("; ") });
+      lines.push({ label: "Cultures", value: cxBits.join(opts.compact ? ", " : "; ") });
     }
     var idBits = [];
     if(p.workupIdWbc) idBits.push("WBC " + p.workupIdWbc);
     if(p.workupIdTemp) idBits.push("Temp " + p.workupIdTemp);
     if(p.workupIdCrp) idBits.push("CRP " + p.workupIdCrp);
     if(p.workupIdProcalcitonin) idBits.push("Procalcitonin " + p.workupIdProcalcitonin);
-    if(p.workupIdImaging) idBits.push("Imaging: " + p.workupIdImaging);
-    if(idBits.length) lines.push({ label: "ID", value: idBits.join(" · ") });
+    if(p.workupIdImaging) idBits.push("Imaging" + colon + p.workupIdImaging);
+    if(idBits.length) lines.push({ label: "ID", value: idBits.join(sep) });
 
     var glycemicBits = [];
     if(p.workupGlycemicPocTrend) glycemicBits.push("POC " + p.workupGlycemicPocTrend);
     if(p.a1cLevel) glycemicBits.push("A1C " + p.a1cLevel);
-    if(p.a1cChanges) glycemicBits.push("Therapy: " + p.a1cChanges);
-    if(p.workupGlycemicAtTarget) glycemicBits.push("At Target: " + p.workupGlycemicAtTarget);
-    if(glycemicBits.length) lines.push({ label: "POC", value: glycemicBits.join(" · ") });
+    if(p.a1cChanges) glycemicBits.push("Therapy" + colon + p.a1cChanges);
+    if(p.workupGlycemicAtTarget) glycemicBits.push("At Target" + colon + p.workupGlycemicAtTarget);
+    if(glycemicBits.length) lines.push({ label: "POC", value: glycemicBits.join(sep) });
 
-    var hemeBits = WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + ": " + p[f.field]; });
-    if(hemeBits.length) lines.push({ label: "Hgb", value: hemeBits.join(" · ") });
+    var hemeBits = WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + colon + p[f.field]; });
+    if(hemeBits.length) lines.push({ label: "Hgb", value: hemeBits.join(sep) });
 
     if(p.tdmAgent || p.tdmLevel || p.tdmTarget || p.tdmNextTrough){
       var tdmBits = [];
       if(p.tdmAgent) tdmBits.push("Agent " + p.tdmAgent);
       if(p.tdmLevel) tdmBits.push("Level " + p.tdmLevel);
       if(p.tdmNextTrough) tdmBits.push("Date " + formatDateTime(p.tdmNextTrough));
-      if(p.tdmTarget) tdmBits.push("target " + p.tdmTarget);
-      lines.push({ label: "TDM", value: tdmBits.length ? tdmBits.join(" · ") : "not yet specified" });
+      if(p.tdmTarget) tdmBits.push((opts.compact ? "Target " : "target ") + p.tdmTarget);
+      lines.push({ label: "TDM", value: tdmBits.length ? tdmBits.join(sep) : "not yet specified" });
     }
 
     var safetyBits = [];
     var vteNote = p.itemNotes.vte;
-    if(p.coreChecks.vte || vteNote){
-      safetyBits.push((p.coreChecks.vte ? "✓ VTE prophylaxis" : "☐ VTE prophylaxis") + (vteNote ? " — " + vteNote : ""));
+    if(opts.compact){
+      safetyBits.push("VTE px:" + (vteNote ? " " + vteNote : ""));
+      safetyBits.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Renal dosing verified");
+    } else {
+      if(p.coreChecks.vte || vteNote){
+        safetyBits.push((p.coreChecks.vte ? "✓ VTE prophylaxis" : "☐ VTE prophylaxis") + (vteNote ? " — " + vteNote : ""));
+      }
+      if(p.coreChecks.renaldose) safetyBits.push("✓ Renal dosing verified");
     }
-    if(p.coreChecks.renaldose) safetyBits.push("✓ Renal dosing verified");
-    var electrolyteNote = p.itemNotes.electrolyteprotocol;
-    if(p.coreChecks.electrolyteprotocol || electrolyteNote){
-      safetyBits.push((p.coreChecks.electrolyteprotocol ? "✓ Electrolyte Protocol" : "☐ Electrolyte Protocol") + (electrolyteNote ? " — " + electrolyteNote : ""));
-    }
-    if(safetyBits.length) lines.push({ label: "Safety", value: safetyBits.join(" · ") });
+    if(safetyBits.length) lines.push({ label: "Safety", value: safetyBits.join(sep) });
 
     var otherBits = [];
-    if(p.workupOtherSmoker) otherBits.push("Smoker: " + p.workupOtherSmoker);
-    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherBits.push("NRT Ordered: " + p.workupOtherNrt);
-    if(p.workupOtherDrugCoverage) otherBits.push("Drug Coverage: " + p.workupOtherDrugCoverage);
-    if(otherBits.length) lines.push({ label: "Other", value: otherBits.join(" · ") });
+    if(p.workupOtherSmoker) otherBits.push("Smoker" + colon + p.workupOtherSmoker);
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherBits.push("NRT Ordered" + colon + p.workupOtherNrt);
+    if(p.workupOtherDrugCoverage) otherBits.push("Drug Coverage" + colon + p.workupOtherDrugCoverage);
+    if(otherBits.length) lines.push({ label: "Other", value: otherBits.join(sep) });
 
     if(p.workupHomeMeds) lines.push({ label: "Home Meds", value: p.workupHomeMeds });
 
@@ -1969,10 +1979,8 @@
     html += bulletSection("TDM", tdmLines);
 
     var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
-    var electrolyteProtocolItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "electrolyteprotocol"; })[0];
     var safetyLines = [p.itemNotes.vte || "VTE px"];
     safetyLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + renaldoseItem.t);
-    safetyLines.push((p.coreChecks.electrolyteprotocol ? "✓ " : "☐ ") + electrolyteProtocolItem.t + (p.itemNotes.electrolyteprotocol ? " — " + p.itemNotes.electrolyteprotocol : ""));
     html += bulletSectionNoTitle(safetyLines);
 
     var otherLines = [];
@@ -2127,10 +2135,8 @@
     bulletSection("TDM", tdmLines);
 
     var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
-    var electrolyteProtocolItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "electrolyteprotocol"; })[0];
     var safetyLines = ["VTE px:" + (p.itemNotes.vte ? " " + p.itemNotes.vte : "")];
     safetyLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + renaldoseItem.t);
-    safetyLines.push((p.coreChecks.electrolyteprotocol ? "✓ " : "☐ ") + electrolyteProtocolItem.t + (p.itemNotes.electrolyteprotocol ? " — " + p.itemNotes.electrolyteprotocol : ""));
     bulletSectionNoTitle(safetyLines);
 
     var otherLines = [];
@@ -2158,13 +2164,14 @@
   // checked/entered) rather than the one-time admission Workup, for day-to-day charting.
   function buildDailyNoteText(p){
     var out = [];
-    out.push("CORE REVIEW");
-    ROUNDS_CORE_ITEMS.forEach(function(item){
+
+    var coreLines = ROUNDS_CORE_ITEMS.map(function(item){
+      if(item.id === "vte") return "VTE px:" + (p.itemNotes.vte ? " " + p.itemNotes.vte : "");
       var checked = !!p.coreChecks[item.id];
       var note = p.itemNotes[item.id];
-      out.push((checked ? "[x] " : "[ ] ") + item.t + (note ? " — " + note : ""));
+      return (checked ? "✓ " : "☐ ") + item.t + (note ? " — " + note : "");
     });
-    out.push("");
+    out.push("Core Review: " + coreLines.join(", "));
 
     if(p.ivpoRows && p.ivpoRows.length){
       var ivpoBits = p.ivpoRows.map(function(r){
@@ -2172,22 +2179,17 @@
         if(!label) return null;
         return label + (r.note ? " (" + r.note + ")" : "");
       }).filter(Boolean);
-      if(ivpoBits.length){
-        out.push("IV → PO CONVERSION");
-        ivpoBits.forEach(function(b){ out.push("- " + b); });
-        out.push("");
-      }
+      if(ivpoBits.length) out.push("IV → PO Conversion: " + ivpoBits.join(", "));
     }
 
-    var monLines = monitoringLines(p, { omitRespMode: true, omitGeneral: true });
+    var monLines = monitoringLines(p, { omitRespMode: true, omitGeneral: true, compact: true });
     if(monLines.length){
-      out.push("MONITORING");
+      out.push("Monitoring:");
       var noTitleLabels = ["POC", "Safety", "Other"];
       monLines.forEach(function(l){ out.push(noTitleLabels.indexOf(l.label) !== -1 ? l.value : (l.label + ": " + l.value)); });
-      out.push("");
     }
 
-    out.push("FOLLOW-UP / TO DO");
+    out.push("To Do:");
     var openTasks = p.tasks.filter(function(t){ return !t.done; });
     if(openTasks.length){
       openTasks.forEach(function(t){
