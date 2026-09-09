@@ -383,7 +383,6 @@
         "workupIdWbc", "workupIdTemp", "workupIdCrp", "workupIdProcalcitonin", "workupIdImaging", "workupGlycemicPocTrend",
         "workupHemeCurrent", "workupHemeBaseline", "workupHemeIron", "workupHemePlt", "workupHemeTreatment",
         "workupOtherSmoker", "workupOtherNrt", "workupOtherDrugCoverage",
-        "workupSafetyElectrolyteProtocol", "workupSafetyExclusion",
         "workupHomeMeds"].forEach(function(f){ if(p[f] === undefined) p[f] = ""; });
 
       // Migrate legacy single free-text workup fields (from before the head-to-toe consolidation
@@ -466,6 +465,7 @@
     { id: "medrec", t: "Med rec", n: "Home med list reconciled vs current orders" },
     { id: "vte", t: "VTE prophylaxis", n: "Check bleeding/renal contraindication; document if held" },
     { id: "renaldose", t: "Renal dosing verified", n: "Adjust for current CrCl" },
+    { id: "electrolyteprotocol", t: "Electrolyte Protocol", n: "Contraindications: Cr > 200mmol/L, urine output < 20mL/hr or dialysis" },
   ];
 
   var IV_PO_DRUG_CLASSES = ["", "PPI/H2 blocker", "Antiepileptic", "Antibiotic", "Analgesic/Opioid", "Antihypertensive", "Furosemide", "Thyroid replacement", "Psychiatric medication", "Other"];
@@ -692,7 +692,6 @@
       workupIdOnAbx: "", workupIdWbc: "", workupIdTemp: "", workupIdCrp: "", workupIdProcalcitonin: "", workupIdImaging: "", workupGlycemicPocTrend: "",
       workupHemeCurrent: "", workupHemeBaseline: "", workupHemeIron: "", workupHemePlt: "", workupHemeTreatment: "",
       workupOtherSmoker: "", workupOtherNrt: "", workupOtherDrugCoverage: "",
-      workupSafetyElectrolyteProtocol: "", workupSafetyExclusion: "",
       workupHomeMeds: ""
     };
     state.patients.unshift(p);
@@ -1019,17 +1018,6 @@
       '</div>' +
       '<button type="button" class="btn small secondary" data-tdm-note="' + p.id + '" style="margin:8px 0;">Generate TDM Consult Note</button>';
 
-    var safetyItemIds = [];
-    var safetyItems = safetyItemIds.map(function(id){ return ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === id; })[0]; }).filter(Boolean);
-    html += '<div class="workup-subtitle">Safety</div>' +
-      safetyItems.map(function(item){
-        return roundsItemHtml(p.id, item, !!p.coreChecks[item.id], false, p.itemNotes, "-safety");
-      }).join("") +
-      workupFieldsRowHtml(p, [
-        { label: "Electrolyte Protocol", field: "workupSafetyElectrolyteProtocol", options: OTHER_YN_OPTIONS },
-        { label: "Exclusion Criteria", field: "workupSafetyExclusion", placeholder: "e.g. UOP <20mL/hr, Cr >200, dialysis", showIf: function(p){ return p.workupSafetyElectrolyteProtocol === "Y"; } },
-      ]);
-
     html += '<div class="workup-subtitle">Other</div>' +
       workupFieldsRowHtml(p, WORKUP_OTHER_FIELDS) +
       workupFieldsRowHtml(p, [{ label: "Drug Coverage", field: "workupOtherDrugCoverage", options: OTHER_YN_OPTIONS }]);
@@ -1111,11 +1099,13 @@
     var medrecItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "medrec"; })[0];
     var vteItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; })[0];
     var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
+    var electrolyteProtocolItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "electrolyteprotocol"; })[0];
     var idAppropriateItem = ABX_ITEMS[0];
 
     var html = roundsItemHtml(p.id, medrecItem, !!p.coreChecks[medrecItem.id], false, p.itemNotes, "-dc") +
       roundsItemHtml(p.id, vteItem, !!p.coreChecks[vteItem.id], false, p.itemNotes, "-dc") +
-      roundsItemHtml(p.id, renaldoseItem, !!p.coreChecks[renaldoseItem.id], false, p.itemNotes, "-dc");
+      roundsItemHtml(p.id, renaldoseItem, !!p.coreChecks[renaldoseItem.id], false, p.itemNotes, "-dc") +
+      roundsItemHtml(p.id, electrolyteProtocolItem, !!p.coreChecks[electrolyteProtocolItem.id], false, p.itemNotes, "-dc");
     if(p.workupIdOnAbx === "Y"){
       html += roundsItemHtml(p.id, idAppropriateItem, !!today[idAppropriateItem.id], !today[idAppropriateItem.id] && !!prev[idAppropriateItem.id], p.itemNotes, "-dc");
     }
@@ -1205,7 +1195,7 @@
   // Med Rec, VTE prophylaxis, Renal Dosing, and ASP review live in the standalone "Barriers to
   // D/C" checklist — this maps each to that area so generated follow-up text reflects where it's
   // actually found on the card.
-  var CORE_ITEM_AREAS = { medrec: "Barriers to D/C", vte: "Barriers to D/C", renaldose: "Barriers to D/C", "abx-appropriate": "Barriers to D/C" };
+  var CORE_ITEM_AREAS = { medrec: "Barriers to D/C", vte: "Barriers to D/C", renaldose: "Barriers to D/C", electrolyteprotocol: "Barriers to D/C", "abx-appropriate": "Barriers to D/C" };
   function addFollowUpsForUnchecked(pid){
     var p = state.patients.find(function(p){ return p.id === pid; });
     if(!p) return;
@@ -1739,7 +1729,10 @@
       safetyBits.push((p.coreChecks.vte ? "✓ VTE prophylaxis" : "☐ VTE prophylaxis") + (vteNote ? " — " + vteNote : ""));
     }
     if(p.coreChecks.renaldose) safetyBits.push("✓ Renal dosing verified");
-    if(p.workupSafetyElectrolyteProtocol) safetyBits.push("Electrolyte Protocol: " + p.workupSafetyElectrolyteProtocol + (p.workupSafetyElectrolyteProtocol === "Y" && p.workupSafetyExclusion ? " — " + p.workupSafetyExclusion : ""));
+    var electrolyteNote = p.itemNotes.electrolyteprotocol;
+    if(p.coreChecks.electrolyteprotocol || electrolyteNote){
+      safetyBits.push((p.coreChecks.electrolyteprotocol ? "✓ Electrolyte Protocol" : "☐ Electrolyte Protocol") + (electrolyteNote ? " — " + electrolyteNote : ""));
+    }
     if(safetyBits.length) lines.push({ label: "Safety", value: safetyBits.join(" · ") });
 
     var otherBits = [];
@@ -1976,9 +1969,10 @@
     html += bulletSection("TDM", tdmLines);
 
     var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
+    var electrolyteProtocolItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "electrolyteprotocol"; })[0];
     var safetyLines = [p.itemNotes.vte || "VTE px"];
     safetyLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + renaldoseItem.t);
-    if(p.workupSafetyElectrolyteProtocol) safetyLines.push("Electrolyte Protocol " + p.workupSafetyElectrolyteProtocol + (p.workupSafetyElectrolyteProtocol === "Y" && p.workupSafetyExclusion ? " — " + p.workupSafetyExclusion : ""));
+    safetyLines.push((p.coreChecks.electrolyteprotocol ? "✓ " : "☐ ") + electrolyteProtocolItem.t + (p.itemNotes.electrolyteprotocol ? " — " + p.itemNotes.electrolyteprotocol : ""));
     html += bulletSectionNoTitle(safetyLines);
 
     var otherLines = [];
@@ -2133,9 +2127,10 @@
     bulletSection("TDM", tdmLines);
 
     var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
+    var electrolyteProtocolItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "electrolyteprotocol"; })[0];
     var safetyLines = ["VTE px:" + (p.itemNotes.vte ? " " + p.itemNotes.vte : "")];
     safetyLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + renaldoseItem.t);
-    if(p.workupSafetyElectrolyteProtocol) safetyLines.push("Electrolyte Protocol " + p.workupSafetyElectrolyteProtocol + (p.workupSafetyElectrolyteProtocol === "Y" && p.workupSafetyExclusion ? " — " + p.workupSafetyExclusion : ""));
+    safetyLines.push((p.coreChecks.electrolyteprotocol ? "✓ " : "☐ ") + electrolyteProtocolItem.t + (p.itemNotes.electrolyteprotocol ? " — " + p.itemNotes.electrolyteprotocol : ""));
     bulletSectionNoTitle(safetyLines);
 
     var otherLines = [];
