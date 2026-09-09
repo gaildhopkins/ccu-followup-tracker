@@ -976,7 +976,6 @@
       workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(0, 7)) +
       workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(7));
 
-    var idAppropriateItem = ABX_ITEMS[0];
     html += '<div class="workup-subtitle">ID</div>' +
       '<div class="rounds-head-row">' +
         '<div class="rounds-field"><label>On Antibiotic?</label><select data-field="workupIdOnAbx" data-pid="' + p.id + '">' +
@@ -993,8 +992,7 @@
           { label: "Imaging", field: "workupIdImaging" },
         ]) +
         buildCulturesHtml(p) +
-        buildAbxRowsHtml(p) +
-        roundsItemHtml(p.id, idAppropriateItem, !!today[idAppropriateItem.id], !today[idAppropriateItem.id] && !!prev[idAppropriateItem.id], p.itemNotes);
+        buildAbxRowsHtml(p);
     }
 
     html += '<div class="workup-subtitle">POC</div>' +
@@ -1021,7 +1019,7 @@
       '</div>' +
       '<button type="button" class="btn small secondary" data-tdm-note="' + p.id + '" style="margin:8px 0;">Generate TDM Consult Note</button>';
 
-    var safetyItemIds = ["vte", "renaldose"];
+    var safetyItemIds = [];
     var safetyItems = safetyItemIds.map(function(id){ return ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === id; })[0]; }).filter(Boolean);
     html += '<div class="workup-subtitle">Safety</div>' +
       safetyItems.map(function(item){
@@ -1036,9 +1034,7 @@
       workupFieldsRowHtml(p, WORKUP_OTHER_FIELDS) +
       workupFieldsRowHtml(p, [{ label: "Drug Coverage", field: "workupOtherDrugCoverage", options: OTHER_YN_OPTIONS }]);
 
-    var medrecItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "medrec"; })[0];
-    html += workupTextareaHtml(p, "Home Medications / Medication Reconciliation", "workupHomeMeds") +
-      roundsItemHtml(p.id, medrecItem, !!p.coreChecks[medrecItem.id], false, p.itemNotes, "-homemeds");
+    html += workupTextareaHtml(p, "Home Medications / Medication Reconciliation", "workupHomeMeds");
 
     return '<div class="rounds-section">' +
       '<div class="rounds-section-title workup-toggle" data-workup-toggle="' + p.id + '">' +
@@ -1089,7 +1085,7 @@
       '</div>';
   }
 
-  function buildIvPoSectionHtml(p){
+  function buildIvPoRowsHtml(p){
     var rowsHtml = p.ivpoRows.map(function(r){
       var isOther = r.drugClass === "Other";
       return '<div class="picker-row" data-ivpo-row="' + r.id + '">' +
@@ -1101,9 +1097,33 @@
         '<button type="button" class="btn small danger" data-ivpo-remove="' + p.id + '|' + r.id + '">×</button>' +
       '</div>';
     }).join("");
-    return '<div class="rounds-section"><div class="rounds-section-title">IV → PO Conversion</div>' +
+    return '<div class="workup-subtitle">IV → PO Conversion</div>' +
       (rowsHtml || '<div class="empty" style="padding:6px 0;">No lines added yet.</div>') +
-      '<button type="button" class="btn small secondary" data-ivpo-add="' + p.id + '" style="margin-top:6px;">+ Add Line</button>' +
+      '<button type="button" class="btn small secondary" data-ivpo-add="' + p.id + '" style="margin-top:6px;">+ Add Line</button>';
+  }
+
+  // Barriers to D/C — a standalone checklist (outside the collapsible Initial Workup, same as
+  // IV→PO Conversion always was) grouping the items that most often hold up discharge: Med Rec,
+  // VTE prophylaxis, Renal Dosing, ASP review (when on antibiotics), and IV→PO Conversion.
+  function buildBarriersSectionHtml(p){
+    var today = getTodayChecks(p);
+    var prev = getPrevChecks(p);
+    var medrecItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "medrec"; })[0];
+    var vteItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; })[0];
+    var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
+    var idAppropriateItem = ABX_ITEMS[0];
+
+    var html = roundsItemHtml(p.id, medrecItem, !!p.coreChecks[medrecItem.id], false, p.itemNotes, "-dc") +
+      roundsItemHtml(p.id, vteItem, !!p.coreChecks[vteItem.id], false, p.itemNotes, "-dc") +
+      roundsItemHtml(p.id, renaldoseItem, !!p.coreChecks[renaldoseItem.id], false, p.itemNotes, "-dc");
+    if(p.workupIdOnAbx === "Y"){
+      html += roundsItemHtml(p.id, idAppropriateItem, !!today[idAppropriateItem.id], !today[idAppropriateItem.id] && !!prev[idAppropriateItem.id], p.itemNotes, "-dc");
+    }
+    html += buildIvPoRowsHtml(p);
+
+    return '<div class="rounds-section">' +
+      '<div class="rounds-section-title">Barriers to D/C</div>' +
+      html +
     '</div>';
   }
 
@@ -1182,10 +1202,10 @@
   // follow-up/reassessment, not an unchecked one — so that area flags followUpWhenChecked.
   // Pending cultures also generate a follow-up (to check back once resulted) even though they
   // aren't a checklist item.
-  // Formerly-"Core Review" items now live inline in their clinical section (Med Rec next to Home
-  // Meds, VTE under Safety, Renal Dose Review under GU) — this maps each to that area so generated
-  // follow-up text reflects where it's actually found on the card.
-  var CORE_ITEM_AREAS = { medrec: "Home Meds", vte: "Safety", renaldose: "Safety" };
+  // Med Rec, VTE prophylaxis, Renal Dosing, and ASP review live in the standalone "Barriers to
+  // D/C" checklist — this maps each to that area so generated follow-up text reflects where it's
+  // actually found on the card.
+  var CORE_ITEM_AREAS = { medrec: "Barriers to D/C", vte: "Barriers to D/C", renaldose: "Barriers to D/C", "abx-appropriate": "Barriers to D/C" };
   function addFollowUpsForUnchecked(pid){
     var p = state.patients.find(function(p){ return p.id === pid; });
     if(!p) return;
@@ -1201,7 +1221,7 @@
       });
     });
     if(p.workupIdOnAbx === "Y"){
-      ABX_ITEMS.forEach(function(item){ candidates.push({ item: item, area: "Antibiotics", checked: !!today[item.id], followUpWhenChecked: false }); });
+      ABX_ITEMS.forEach(function(item){ candidates.push({ item: item, area: CORE_ITEM_AREAS[item.id] || "Antibiotics", checked: !!today[item.id], followUpWhenChecked: false }); });
     }
     ALL_IV_MEDS_ITEMS.forEach(function(item){ candidates.push({ item: item, area: "IV Critical Care Medications", checked: !!today[item.id], followUpWhenChecked: true }); });
 
@@ -1307,8 +1327,55 @@
   }
 
   // ---- Main render ----
+  // Builds a CSS selector identifying a field uniquely enough to re-find its replacement after a
+  // rebuild (e.g. "[data-field=...][data-pid=...]"). Used to restore focus/cursor position across
+  // renderPatients() rebuilding the whole list — otherwise every field's "change" (fires on blur)
+  // would rebuild the DOM out from under whatever the user just clicked or tabbed into next,
+  // silently dropping that focus and requiring a second click to actually land in the new field.
+  function fieldIdentitySelector(el){
+    if(!el || !el.getAttribute) return null;
+    var markers = ["data-item-note", "data-field", "data-item", "data-abx-field", "data-ivpo-field", "data-cx-field"];
+    for(var i = 0; i < markers.length; i++){
+      var val = el.getAttribute(markers[i]);
+      if(val === null) continue;
+      var sel = "[" + markers[i] + "=\"" + val.replace(/["\\]/g, "\\$&") + "\"]";
+      var pid = el.getAttribute("data-pid");
+      var rid = el.getAttribute("data-rid");
+      if(pid !== null) sel += "[data-pid=\"" + pid.replace(/["\\]/g, "\\$&") + "\"]";
+      if(rid !== null) sel += "[data-rid=\"" + rid.replace(/["\\]/g, "\\$&") + "\"]";
+      return sel;
+    }
+    return null;
+  }
+
+  var renderScheduled = false;
+  // Deferred so the browser's native focus transfer (Tab, or a click into another field) finishes
+  // first — the rebuild itself happens on the next tick, then restores focus onto the equivalent
+  // new element, so tabbing/clicking between fields no longer gets eaten by the rebuild.
   function renderPatients(){
+    if(renderScheduled) return;
+    renderScheduled = true;
+    setTimeout(function(){
+      renderScheduled = false;
+      renderPatientsImmediate();
+    }, 0);
+  }
+  function renderPatientsImmediate(){
     var wrap = document.getElementById("rounds-list");
+    var active = document.activeElement;
+    var focusSelector = (active && wrap.contains(active)) ? fieldIdentitySelector(active) : null;
+    var selStart = null, selEnd = null;
+    if(focusSelector && typeof active.selectionStart === "number"){
+      selStart = active.selectionStart;
+      selEnd = active.selectionEnd;
+    }
+    // Preserve any not-yet-committed typing in the focused field: a collateral rebuild can be
+    // triggered by an EARLIER field's blur before this field's own blur/change has saved to state.
+    var focusValue = null;
+    if(focusSelector && typeof active.value === "string"){
+      focusValue = active.value;
+    }
+
     wrap.innerHTML = "";
     if(state.patients.length === 0){
       wrap.innerHTML = '<div class="panel"><div class="empty">No patients yet. Add one above to start tracking rounds and follow-up.</div></div>';
@@ -1328,6 +1395,17 @@
     });
 
     wirePatientListEvents(wrap);
+
+    if(focusSelector){
+      var newEl = wrap.querySelector(focusSelector);
+      if(newEl){
+        if(focusValue !== null && typeof newEl.value === "string") newEl.value = focusValue;
+        newEl.focus();
+        if(selStart !== null && typeof newEl.setSelectionRange === "function"){
+          try{ newEl.setSelectionRange(selStart, selEnd); }catch(e){}
+        }
+      }
+    }
   }
 
   function buildPatientCardEl(p){
@@ -1367,7 +1445,7 @@
           '<div class="rounds-field"><label>A1C</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:65px;"></div>' +
         '</div>' +
         buildWorkupSectionHtml(p) +
-        buildIvPoSectionHtml(p) +
+        buildBarriersSectionHtml(p) +
         '<div class="rounds-section"><div class="rounds-section-title">Follow-Up / To Do</div>' +
           (orderedTasks.length ? orderedTasks.map(function(t){ return taskRowHtml(p.id, t); }).join("") : '<div class="empty" style="padding:10px 0;">No follow-up tasks yet.</div>') +
           '<div class="add-task-row">' +
