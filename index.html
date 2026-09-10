@@ -1084,17 +1084,19 @@
   }
 
   // Barriers to D/C — a standalone checklist (outside the collapsible Initial Workup, same as
-  // IV→PO Conversion always was) grouping the items that most often hold up discharge. Med Rec
-  // and Renal Dosing no longer have their own checkbox here — they're always pulled into Follow-Ups
-  // when unchecked, so a manual toggle was redundant. VTE prophylaxis, ASP review (when on
-  // antibiotics), and IV→PO Conversion remain.
+  // IV→PO Conversion always was) grouping the items that most often hold up discharge: Med Rec,
+  // VTE prophylaxis, Renal Dosing, ASP review (when on antibiotics), and IV→PO Conversion.
   function buildBarriersSectionHtml(p){
     var today = getTodayChecks(p);
     var prev = getPrevChecks(p);
+    var medrecItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "medrec"; })[0];
     var vteItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; })[0];
+    var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
     var idAppropriateItem = ABX_ITEMS[0];
 
-    var html = roundsItemHtml(p.id, vteItem, !!p.coreChecks[vteItem.id], false, p.itemNotes, "-dc");
+    var html = roundsItemHtml(p.id, medrecItem, !!p.coreChecks[medrecItem.id], false, p.itemNotes, "-dc") +
+      roundsItemHtml(p.id, vteItem, !!p.coreChecks[vteItem.id], false, p.itemNotes, "-dc") +
+      roundsItemHtml(p.id, renaldoseItem, !!p.coreChecks[renaldoseItem.id], false, p.itemNotes, "-dc");
     if(p.workupIdOnAbx === "Y"){
       html += roundsItemHtml(p.id, idAppropriateItem, !!today[idAppropriateItem.id], !today[idAppropriateItem.id] && !!prev[idAppropriateItem.id], p.itemNotes, "-dc");
     }
@@ -1726,6 +1728,7 @@
     var vteNote = p.itemNotes.vte;
     if(opts.compact){
       safetyBits.push("VTE px:" + (vteNote ? " " + vteNote : ""));
+      safetyBits.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + "Renal dosing verified");
     } else {
       if(p.coreChecks.vte || vteNote){
         safetyBits.push((p.coreChecks.vte ? "✓ VTE prophylaxis" : "☐ VTE prophylaxis") + (vteNote ? " — " + vteNote : ""));
@@ -1967,7 +1970,9 @@
     if(p.tdmFrequency) tdmLines.push("Frequency " + p.tdmFrequency);
     html += bulletSection("TDM", tdmLines);
 
+    var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
     var safetyLines = [p.itemNotes.vte || "VTE px"];
+    safetyLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + renaldoseItem.t);
     html += bulletSectionNoTitle(safetyLines);
 
     var otherLines = [];
@@ -2121,7 +2126,9 @@
     if(p.tdmFrequency) tdmLines.push("Frequency " + p.tdmFrequency);
     bulletSection("TDM", tdmLines);
 
+    var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
     var safetyLines = ["VTE px:" + (p.itemNotes.vte ? " " + p.itemNotes.vte : "")];
+    safetyLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + renaldoseItem.t);
     bulletSectionNoTitle(safetyLines);
 
     var otherLines = [];
@@ -2150,9 +2157,7 @@
   function buildDailyNoteText(p){
     var out = [];
 
-    var coreLines = ROUNDS_CORE_ITEMS.filter(function(item){
-      return item.id !== "medrec" && item.id !== "renaldose";
-    }).map(function(item){
+    var coreLines = ROUNDS_CORE_ITEMS.map(function(item){
       if(item.id === "vte") return "VTE px:" + (p.itemNotes.vte ? " " + p.itemNotes.vte : "");
       var checked = !!p.coreChecks[item.id];
       var note = p.itemNotes[item.id];
