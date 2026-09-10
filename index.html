@@ -1,0 +1,2386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CCU Initial Eval &amp; Follow-Up Tracker</title>
+<style>
+  :root{
+    --bg:#0B1220;
+    --panel:#121B2E;
+    --panel-2:#0F1829;
+    --border:#1E2A3F;
+    --border-soft:#182338;
+    --teal:#2DD4BF;
+    --teal-dim:#155E56;
+    --teal-bg:rgba(45,212,191,0.10);
+    --text:#E7ECF3;
+    --text-dim:#8FA0B8;
+    --text-faint:#5B6B84;
+    --amber:#F5B942;
+    --amber-bg:rgba(245,185,66,0.12);
+    --red:#F16565;
+    --red-bg:rgba(241,101,101,0.12);
+    --green:#3FD07E;
+    --green-bg:rgba(63,208,126,0.10);
+    --header-bg:rgba(11,18,32,0.92);
+    --overlay-04:rgba(255,255,255,0.04);
+    --overlay-06:rgba(255,255,255,0.06);
+    --overlay-07:rgba(255,255,255,0.07);
+  }
+  :root[data-theme="light"]{
+    --bg:#F3F5F9;
+    --panel:#FFFFFF;
+    --panel-2:#F6F8FB;
+    --border:#D9DFE8;
+    --border-soft:#E4E9F1;
+    --teal:#0E8C7F;
+    --teal-dim:#0B6E62;
+    --teal-bg:rgba(14,140,127,0.10);
+    --text:#1A2233;
+    --text-dim:#57657A;
+    --text-faint:#8393A8;
+    --amber:#A3690A;
+    --amber-bg:rgba(163,105,10,0.12);
+    --red:#C43B3B;
+    --red-bg:rgba(196,59,59,0.10);
+    --green:#1C8A52;
+    --green-bg:rgba(28,138,82,0.10);
+    --header-bg:rgba(255,255,255,0.88);
+    --overlay-04:rgba(15,20,30,0.05);
+    --overlay-06:rgba(15,20,30,0.07);
+    --overlay-07:rgba(15,20,30,0.08);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  body{padding-bottom:60px;}
+
+  header{position:sticky; top:0; z-index:50; background:var(--header-bg); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border); padding:14px 20px;}
+  .header-row{display:flex; align-items:center; justify-content:space-between; max-width:1100px; margin:0 auto; flex-wrap:wrap; gap:10px;}
+  .brand{display:flex; align-items:baseline; gap:10px;}
+  .brand .dot{width:9px; height:9px; border-radius:50%; background:var(--teal); box-shadow:0 0 10px var(--teal);}
+  .brand h1{font-size:16px; margin:0; font-weight:650; letter-spacing:0.2px;}
+  .brand .sub{font-size:11px; color:var(--text-dim); letter-spacing:0.3px; text-transform:uppercase;}
+
+  main{max-width:1100px; margin:0 auto; padding:20px;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px;}
+  .panel-title{font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--teal); margin:0 0 12px 0;}
+  .panel-title-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+  .panel-title-row .panel-title{margin:0;}
+  .panel-toolbar{display:flex; gap:8px; flex-wrap:wrap;}
+
+  /* ---------- Patients / Tracker ---------- */
+  .add-patient-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;}
+  input, select, textarea{background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:9px 11px; font-size:14px; font-family:inherit;}
+  input::placeholder, textarea::placeholder{color:var(--text-faint);}
+  input:focus, select:focus, textarea:focus{outline:none; border-color:var(--teal);}
+  .btn{background:var(--teal); color:#04201C; border:none; border-radius:8px; padding:9px 15px;
+    font-size:13px; font-weight:700; cursor:pointer; transition:opacity .15s;}
+  .btn:hover{opacity:0.88;}
+  .btn.secondary{background:var(--panel-2); color:var(--text); border:1px solid var(--border);}
+  .btn.danger{background:var(--red-bg); color:var(--red); border:1px solid rgba(241,101,101,0.3);}
+  .btn.small{padding:5px 10px; font-size:12px;}
+
+  .unit-group-title{display:flex; align-items:center; gap:8px; margin:20px 0 10px 0; padding-bottom:6px;
+    border-bottom:1px solid var(--border-soft);}
+  .unit-group-title:first-child{margin-top:4px;}
+  .unit-badge{font-size:11px; font-weight:800; padding:3px 9px; border-radius:8px; text-transform:uppercase; letter-spacing:0.5px;}
+  .unit-badge.ccu{background:var(--teal-bg); color:var(--teal);}
+  .unit-badge.floor_im{background:var(--overlay-07); color:var(--text-dim);}
+  .unit-badge.floor_hosp{background:var(--amber-bg); color:var(--amber);}
+  .unit-group-title .count{font-size:11.5px; color:var(--text-faint);}
+
+  .patient-card{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:12px;
+    padding:14px 16px; margin-bottom:12px;}
+  .patient-head{display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; cursor:pointer;}
+  .patient-name{font-size:15px; font-weight:700;}
+  .patient-meta{font-size:12px; color:var(--text-dim); margin-top:2px;}
+  .patient-badges{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;}
+  .badge{display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px;}
+  .badge.overdue{background:var(--red-bg); color:var(--red);}
+  .badge.today{background:var(--amber-bg); color:var(--amber);}
+  .badge.ok{background:var(--green-bg); color:var(--green);}
+  .badge.none{background:var(--overlay-06); color:var(--text-faint);}
+
+  .task-list{margin-top:12px; border-top:1px solid var(--border-soft); padding-top:10px; display:none;}
+  .task-list.open{display:block;}
+  .task-row{display:flex; align-items:flex-start; gap:10px; padding:8px 0; border-bottom:1px solid var(--overlay-04);}
+  .task-row:last-child{border-bottom:none;}
+  .task-check{width:18px; height:18px; margin-top:2px; accent-color:var(--teal); cursor:pointer; flex-shrink:0;}
+  .task-text{flex:1; font-size:13.5px;}
+  .task-text.done{color:var(--text-faint); text-decoration:line-through;}
+  .task-due{font-size:11px; color:var(--text-dim); white-space:nowrap;}
+  .task-due.overdue{color:var(--red); font-weight:700;}
+  .task-due.today{color:var(--amber); font-weight:700;}
+  .task-priority{font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px; text-transform:uppercase;}
+  .task-priority.urgent{background:var(--red-bg); color:var(--red);}
+  .task-priority.routine{background:var(--overlay-06); color:var(--text-dim);}
+  .del-task{background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:15px; padding:0 4px;}
+  .del-task:hover{color:var(--red);}
+
+  .add-task-row{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; align-items:center;}
+  .add-task-row input[type=text]{flex:2; min-width:160px;}
+  .add-task-row input[type=date]{flex:1; min-width:130px;}
+  .add-task-row select{flex:0 0 auto;}
+
+  .empty{color:var(--text-faint); font-size:13px; text-align:center; padding:30px 0;}
+
+  /* ---------- Daily Rounds ---------- */
+  .rounds-head-row{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px;}
+  .rounds-field{display:flex; flex-direction:column; gap:3px;}
+  .rounds-field label{font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.4px;}
+  .rounds-field input, .rounds-field select{font-size:13px; padding:7px 9px;}
+  .rounds-section{margin-top:12px; border-top:1px solid var(--border-soft); padding-top:10px;}
+  .rounds-section-title{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim); margin-bottom:4px;}
+  .iv-groups-row{display:grid; grid-template-columns:repeat(4, 1fr); column-gap:14px;}
+  .iv-groups-row .rounds-item{flex-wrap:nowrap; align-items:center; gap:6px;}
+  .iv-groups-row .rounds-item label{min-width:0; flex:1 1 auto;}
+  .iv-groups-row .item-note-input{margin-left:0; width:110px; flex-shrink:0;}
+  .iv-groups-row .item-dose-input{width:52px;}
+  .iv-groups-row .item-note-unit{margin-left:2px; flex-shrink:0;}
+  .rounds-item{display:flex; align-items:flex-start; gap:9px; padding:5px 0; flex-wrap:wrap;}
+  .rounds-item input[type=checkbox]{width:16px; height:16px; margin-top:2px; accent-color:var(--teal); cursor:pointer; flex-shrink:0;}
+  .rounds-item label{font-size:13px; line-height:1.4; cursor:pointer; flex:1; min-width:140px;}
+  .rounds-item .note{display:block; font-size:11px; color:var(--text-dim); margin-top:1px;}
+  .prev-hint{font-size:10px; font-weight:700; color:var(--teal); background:var(--teal-bg);
+    border:1px solid rgba(45,212,191,0.3); border-radius:10px; padding:2px 8px; cursor:pointer; white-space:nowrap; flex-shrink:0;}
+  .prev-hint:hover{opacity:0.8;}
+  .item-note-input{font-size:12px; padding:5px 8px; width:160px; flex-shrink:0; margin-left:25px;}
+  .item-dose-input{width:80px; margin-left:25px;}
+  .item-note-unit{font-size:11px; color:var(--text-dim); flex-shrink:0; white-space:nowrap; margin-left:-5px;}
+  .rounds-footer-row{display:flex; justify-content:flex-end; gap:6px; margin-top:12px; flex-wrap:wrap;}
+
+  /* ---------- Multi-row pickers (IV->PO, Antibiotics, Cultures) ---------- */
+  .picker-row{display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; margin-bottom:8px;
+    padding-bottom:8px; border-bottom:1px solid var(--overlay-04);}
+  .picker-row:last-of-type{border-bottom:none;}
+
+  /* ---------- Initial Workup ---------- */
+  .workup-toggle{display:flex; justify-content:space-between; align-items:center; cursor:pointer;}
+  .workup-toggle:hover{color:var(--teal);}
+  .workup-body{display:none;}
+  .workup-body.open{display:block;}
+  .workup-subtitle{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim); margin:12px 0 4px 0;}
+  .workup-subtitle:first-child{margin-top:6px;}
+  .workup-textarea{width:100%; min-height:50px; resize:vertical; font-size:13px; margin-top:2px;}
+
+  footer{text-align:center; font-size:11px; color:var(--text-faint); padding:30px 20px 10px; letter-spacing:0.2px;}
+
+  @media (max-width:900px){
+    .iv-groups-row{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:600px){
+    .brand h1{font-size:14px;}
+    .task-due{white-space:normal;}
+    .iv-groups-row{grid-template-columns:1fr;}
+  }
+
+  /* ---------- Print / PDF export ---------- */
+  #print-area{display:none;}
+  @media print{
+    @page{ margin:1.4cm; }
+    body > *:not(#print-area){ display:none !important; }
+    body{ background:#fff !important; padding:0 !important; }
+    #print-area{ display:block !important; background:#fff; color:#1a1a1a;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  }
+  .print-header{border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:16px;}
+  .print-header h1{font-size:19px; margin:0 0 4px 0;}
+  .print-meta{font-size:11px; color:#555;}
+  .print-patient{margin-bottom:14px;}
+  .print-patient-name{font-size:16px; font-weight:700;}
+  .print-patient-room{font-size:12px; color:#555; margin-top:1px;}
+  .print-section{margin-bottom:18px;}
+  .workup-note-print .print-section{margin-bottom:0;}
+  .workup-note-print .print-section h2{text-transform:none;}
+  .print-section h2{font-size:12.5px; text-transform:uppercase; letter-spacing:0.5px; color:#333;
+    border-bottom:1px solid #ccc; padding-bottom:4px; margin:0 0 8px 0;}
+  .print-table{width:100%; border-collapse:collapse; font-size:12px;}
+  .print-table th, .print-table td{text-align:left; padding:5px 8px; border-bottom:1px solid #ddd; vertical-align:top;}
+  .print-table th{font-size:10.5px; text-transform:uppercase; color:#555; font-weight:700;}
+  .print-status-overdue{color:#b91c1c; font-weight:700;}
+  .print-status-today{color:#b45309; font-weight:700;}
+  .print-status-ok{color:#1a7a4c;}
+  .print-list{list-style:none; padding:0; margin:0; font-size:12.5px;}
+  .print-list li{padding:3px 0;}
+  .print-checked{color:#1a1a1a;}
+  .print-unchecked{color:#888;}
+  .print-dim{color:#888; font-size:11px;}
+  .print-empty{font-size:12px; color:#888; font-style:italic; margin:0;}
+  .print-cat{margin-bottom:10px;}
+  .print-cat-title{font-weight:700; font-size:12.5px; margin-bottom:3px;}
+  .print-footer{margin-top:24px; padding-top:8px; border-top:1px solid #ccc; font-size:10.5px; color:#888; text-align:center;}
+  .print-patient-block + .print-patient-block{margin-top:26px;}
+  .print-pagebreak{page-break-after:always;}
+  .print-rounds-table{font-size:10.5px;}
+  .print-rounds-table th, .print-rounds-table td{padding:4px 6px;}
+  .print-focus-cell div{margin-bottom:2px;}
+  .print-status-stack{margin-top:3px; display:flex; flex-direction:column; gap:1px; font-size:10.5px; color:#555;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div class="brand">
+      <span class="dot"></span>
+      <div>
+        <h1>CCU Tracker</h1>
+        <div class="sub">Daily Rounds &amp; Follow-Up</div>
+      </div>
+    </div>
+    <button type="button" class="btn secondary small" id="theme-toggle">Light Mode</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===================== DAILY ROUNDS VIEW ===================== -->
+  <div id="view-rounds">
+    <div class="panel">
+      <div class="panel-title-row">
+        <div class="panel-title">Add / Update Patient</div>
+        <div class="panel-toolbar">
+          <button class="btn secondary small" id="rounds-export-btn">Print Today's Rounds</button>
+          <button class="btn secondary small" id="export-all-btn">Full Detail Export (All)</button>
+        </div>
+      </div>
+      <div class="add-patient-row">
+        <input type="text" id="rp-name" placeholder="Name / Initials" style="flex:2; min-width:130px;">
+        <input type="text" id="rp-room" placeholder="Room / Bed" style="flex:1; min-width:90px;">
+        <input type="number" id="rp-age" placeholder="Age" style="flex:0.6; min-width:70px;">
+        <input type="text" id="rp-dx" placeholder="Diagnosis / RFA" style="flex:2; min-width:150px;">
+        <input type="number" id="rp-ef" placeholder="EF %" style="flex:0 0 80px;">
+        <select id="rp-unit" style="flex:0 0 170px;">
+          <option value="ccu">CCU</option>
+          <option value="floor_im">Floor — IM MD</option>
+          <option value="floor_hosp">Floor — Hospitalist</option>
+        </select>
+        <button class="btn" id="rounds-add-btn">+ Add Patient</button>
+      </div>
+      <div style="font-size:11.5px; color:var(--text-dim); margin-top:8px;">Patients stay on this list day to day &mdash; remove only when discharged or transferred off your beds. Review checklist items reset each day but show a hint if confirmed the day before.</div>
+    </div>
+
+    <div id="rounds-list"></div>
+  </div>
+
+</main>
+
+<footer>G. Hopkins, RPh | RVH CCU | For Educational Use Only</footer>
+
+<!-- Populated on demand and shown only when printing -->
+<div id="print-area"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------- Theme ----------------
+  var THEME_KEY = "ccu_tracker_theme";
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    var btn = document.getElementById("theme-toggle");
+    if(btn) btn.textContent = theme === "light" ? "Dark Mode" : "Light Mode";
+  }
+  (function initTheme(){
+    var stored;
+    try{ stored = localStorage.getItem(THEME_KEY); }catch(e){}
+    if(!stored) stored = (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+    applyTheme(stored);
+  })();
+  document.getElementById("theme-toggle").addEventListener("click", function(){
+    var current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+    var next = current === "light" ? "dark" : "light";
+    applyTheme(next);
+    try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
+  });
+
+  // ---------------- Storage ----------------
+  var STORE_KEY = "ccu_tracker_v1";
+  function loadState(){
+    var s;
+    try{
+      var raw = localStorage.getItem(STORE_KEY);
+      if(raw) s = JSON.parse(raw);
+    }catch(e){}
+    if(!s) s = { patients: [] };
+    if(!s.patients) s.patients = [];
+
+    // One-time migration: pull any previously separate "Daily Rounds" list into the unified patient list.
+    if(!s.migratedRounds && s.roundsPatients && s.roundsPatients.length){
+      s.roundsPatients.forEach(function(rp){
+        s.patients.push({
+          id: rp.id, name: rp.name, room: rp.room || "", dx: rp.dx || "", ef: rp.ef || "",
+          unit: "floor_im", tasks: [],
+          focus: rp.focus || {}, crcl: rp.crcl || "", coreChecks: {},
+          tdmAgent: rp.tdmAgent || "", tdmNextTrough: rp.tdmNextTrough || "", tdmTarget: rp.tdmTarget || "", tdmFrequency: rp.tdmFrequency || "",
+          itemNotes: rp.itemNotes || {},
+          a1cLevel: rp.a1cLevel || "", a1cChanges: rp.a1cChanges || "",
+          checksByDate: rp.checksByDate || {}
+        });
+      });
+    }
+    s.migratedRounds = true;
+    delete s.roundsPatients;
+
+    // Backfill any missing fields on existing patient records (from earlier versions of this file).
+    s.patients.forEach(function(p){
+      if(p.unit === undefined) p.unit = "ccu";
+      if(p.unit === "floor") p.unit = "floor_im"; // legacy single "Cardiac Floor" group split into IM MD / Hospitalist — reassign as needed
+      if(!p.tasks) p.tasks = [];
+      if(!p.focus) p.focus = {};
+      if(p.crcl === undefined) p.crcl = "";
+      if(p.tdmAgent === undefined) p.tdmAgent = "";
+      if(p.tdmLevel === undefined) p.tdmLevel = "";
+      if(p.tdmNextTrough === undefined) p.tdmNextTrough = "";
+      if(p.tdmTarget === undefined) p.tdmTarget = "";
+      if(p.tdmFrequency === undefined) p.tdmFrequency = "";
+      if(!p.itemNotes) p.itemNotes = {};
+      if(p.a1cLevel === undefined) p.a1cLevel = "";
+      if(p.a1cChanges === undefined) p.a1cChanges = "";
+      if(p.workupGlycemicAtTarget === undefined) p.workupGlycemicAtTarget = "";
+      if(!p.checksByDate) p.checksByDate = {};
+      if(!p.coreChecks) p.coreChecks = {};
+      if(p.dx === undefined) p.dx = "";
+      if(p.age === undefined) p.age = "";
+      if(p.ef === undefined) p.ef = "";
+      if(!p.ivpoRows) p.ivpoRows = [];
+      if(!p.abxRows) p.abxRows = [];
+      if(p.abxStopDate === undefined) p.abxStopDate = "";
+      if(p.abxDuration === undefined) p.abxDuration = "";
+      if(!p.cultures) p.cultures = [];
+      if(p.respMode === undefined) p.respMode = "";
+      if(p.respFio2 === undefined) p.respFio2 = "";
+      if(p.respFlowRate === undefined) p.respFlowRate = "";
+      if(p.respPeep === undefined) p.respPeep = "";
+      if(p.respSettings === undefined) p.respSettings = "";
+      // Default the "on IV infusions" toggle to on if this patient already has any IV Critical
+      // Care Medication checked or noted from before the toggle existed, so nothing already
+      // entered gets silently hidden.
+      if(p.infusionsActive === undefined){
+        var ivMedIds = ["ivm-furosemide", "ivm-bicarb", "ivm-propofol", "ivm-fentanyl", "ivm-dex",
+          "ivm-norepi", "ivm-vaso", "ivm-amio", "ivm-milrinone", "ivm-dobut", "ivm-ntg", "ivm-heparin"];
+        p.infusionsActive = !!p.workupInfusions || ivMedIds.some(function(id){
+          if(p.itemNotes[id]) return true;
+          return Object.keys(p.checksByDate).some(function(d){ return p.checksByDate[d] && p.checksByDate[d][id]; });
+        });
+      }
+
+      if(p.cvAcsEfLt40 === undefined) p.cvAcsEfLt40 = "";
+      ["workupPmh", "workupInfusionsOther",
+        "workupNeuroGeneral", "workupNeuroRass", "workupNeuroGcs", "workupNeuroLimb", "workupNeuroImaging", "workupNeuroPlan",
+        "workupCvGeneral", "workupCvRhythm", "workupCvBp", "workupCvEdemaGrade",
+        "workupCvTni", "workupCvBnp", "workupCvLdl", "workupCvLactate", "workupCvEcho", "workupCvEcg", "workupCvAngio",
+        "workupRespGeneral", "workupRespCxr", "workupRespChestCt", "workupRespChestTube",
+        "workupGiGeneral", "workupGiBowelMovement", "workupGiBowelMovementDate", "workupGiFms", "workupGiRoute", "workupGiLabs", "workupGiImaging",
+        "workupGuGeneral", "workupGuBaselineCr", "workupGuUrineOutput", "workupGuBalance", "workupGuCurrentCr", "workupGuImaging",
+        "workupGuHd", "workupGuHdSchedule", "workupGuPd", "workupGuFoleyDate",
+        "workupIdWbc", "workupIdTemp", "workupIdCrp", "workupIdProcalcitonin", "workupIdImaging", "workupGlycemicPocTrend",
+        "workupHemeCurrent", "workupHemeBaseline", "workupHemeIron", "workupHemePlt", "workupHemeTreatment",
+        "workupOtherSmoker", "workupOtherNrt", "workupOtherDrugCoverage",
+        "workupHomeMeds"].forEach(function(f){ if(p[f] === undefined) p[f] = ""; });
+
+      // Migrate legacy single free-text workup fields (from before the head-to-toe consolidation
+      // and the removal of the focus-chip toggle system) into the new structured sub-fields,
+      // best-effort, so nothing already typed is lost.
+      if(p.workupInfusions){ if(!p.workupInfusionsOther) p.workupInfusionsOther = p.workupInfusions; delete p.workupInfusions; }
+      if(p.workupNeuro){ if(!p.workupNeuroGeneral) p.workupNeuroGeneral = p.workupNeuro; delete p.workupNeuro; }
+      if(p.workupCvLabs){ if(!p.workupCvTni) p.workupCvTni = p.workupCvLabs; delete p.workupCvLabs; }
+      if(p.workupCvCath){ if(!p.workupCvAngio) p.workupCvAngio = p.workupCvCath; delete p.workupCvCath; }
+      // ACS / GDMT Status had no direct home in the new structure (now covered by the ACS
+      // checklist items folded into Cardiovascular) — left in place, unreferenced, rather than deleted.
+      if(p.workupResp){ if(!p.workupRespCxr) p.workupRespCxr = p.workupResp; delete p.workupResp; }
+      if(p.workupGi){ if(!p.workupGiBowelMovement) p.workupGiBowelMovement = p.workupGi; delete p.workupGi; }
+      if(p.workupGu){ if(!p.workupGuBaselineCr) p.workupGuBaselineCr = p.workupGu; delete p.workupGu; }
+      if(p.workupGlycemic){ if(!p.workupGlycemicPocTrend) p.workupGlycemicPocTrend = p.workupGlycemic; delete p.workupGlycemic; }
+      if(p.workupHeme){ if(!p.workupHemeCurrent) p.workupHemeCurrent = p.workupHeme; delete p.workupHeme; }
+      if(p.workupId){ if(!p.workupIdWbc) p.workupIdWbc = p.workupId; delete p.workupId; }
+
+      // Default the "On Antibiotic?" toggle to Y if this patient already had the old Antibiotics
+      // or TDM focus area active, already-checked legacy Antibiotics items, or any antibiotic/
+      // culture/TDM data from before the toggle existed, so nothing already entered gets silently hidden.
+      if(p.workupIdOnAbx === undefined){
+        var hadAbxFocus = !!(p.focus && (p.focus.abx || p.focus.tdm));
+        var hadAbxChecks = Object.keys(p.checksByDate).some(function(d){
+          var day = p.checksByDate[d] || {};
+          return day["abx-dur"] || day["abx-renal"] || day["abx-cx"];
+        });
+        p.workupIdOnAbx = (hadAbxFocus || hadAbxChecks || (p.abxRows && p.abxRows.length) ||
+          (p.cultures && p.cultures.length) || p.tdmAgent || p.workupIdWbc || p.workupIdTemp) ? "Y" : "";
+      }
+
+      // Default each Cardiovascular condition gate (HFrEF/HFpEF/AF/ACS) to Y if this patient
+      // already had the matching old focus area active or already-checked items from before the
+      // per-condition toggle existed, so nothing already entered gets silently hidden.
+      function hadCheckedAny(ids){
+        return ids.some(function(id){
+          return Object.keys(p.checksByDate).some(function(d){ return p.checksByDate[d] && p.checksByDate[d][id]; });
+        });
+      }
+      if(p.cvHasHfref === undefined){
+        p.cvHasHfref = (!!(p.focus && p.focus.hfref) || hadCheckedAny(["hfref-arni", "hfref-bb", "hfref-mra", "hfref-sglt2", "hfref-diur"])) ? "Y" : "";
+      }
+      if(p.cvHasHfpef === undefined){
+        p.cvHasHfpef = (!!(p.focus && p.focus.hfpef) || hadCheckedAny(["hfpef-sglt2", "hfpef-mra", "hfpef-diur"])) ? "Y" : "";
+      }
+      if(p.cvHasAf === undefined){
+        p.cvHasAf = (!!(p.focus && p.focus.af) || hadCheckedAny(["af-oac", "af-rate"])) ? "Y" : "";
+      }
+      if(p.cvHasAcs === undefined){
+        p.cvHasAcs = (!!(p.focus && p.focus.acs) || hadCheckedAny(["acs-asa", "acs-p2y12", "acs-statin", "acs-ace", "acs-bb"])) ? "Y" : "";
+      }
+    });
+
+    // One-time migration: Core Review items now persist instead of resetting daily.
+    // Pull forward anything that was ever checked on a prior day so nothing looks "undone" after the switch.
+    if(!s.migratedCoreChecks){
+      var legacyCoreIds = ["medrec", "vte", "renaldose", "ivpo"];
+      s.patients.forEach(function(p){
+        Object.keys(p.checksByDate).forEach(function(d){
+          var dayChecks = p.checksByDate[d] || {};
+          legacyCoreIds.forEach(function(id){
+            if(dayChecks[id]) p.coreChecks[id] = true;
+          });
+        });
+      });
+      s.migratedCoreChecks = true;
+    }
+    return s;
+  }
+  function saveState(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+  }
+  var state = loadState();
+  saveState();
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  // ---------------- Daily Rounds Checklist Template ----------------
+  var ROUNDS_CORE_ITEMS = [
+    { id: "medrec", t: "Med rec", n: "Home med list reconciled vs current orders" },
+    { id: "vte", t: "VTE prophylaxis", n: "Check bleeding/renal contraindication; document if held" },
+    { id: "renaldose", t: "Renal dosing verified", n: "Adjust for current CrCl" },
+  ];
+
+  var IV_PO_DRUG_CLASSES = ["", "PPI/H2 blocker", "Antiepileptic", "Antibiotic", "Analgesic/Opioid", "Antihypertensive", "Furosemide", "Thyroid replacement", "Psychiatric medication", "Other"];
+  var ABX_ROWS_MAX = 3;
+  var CULTURE_STATUSES = ["Pending", "Resulted", "Negative"];
+  var RESP_MODES = ["", "Room Air", "NP", "Oxymask", "Optiflow", "CPAP", "BiPAP", "IMV"];
+  var TDM_AGENTS = ["", "Carbamazepine", "Cyclosporine", "Digoxin", "Gentamicin", "Levetiracetam", "Lithium", "Phenytoin", "Tacrolimus", "Valproic Acid", "Vancomycin", "Voriconazole", "Other"];
+
+  // IV Critical Care Medications — checkable items with a dose-entry field (units shown as a hint,
+  // not a full protocol) for the currently running rate. The four groups render side by side as
+  // columns under Infusions in the Initial Workup.
+  var IV_MEDS_GROUPS = [
+    { label: "Sedatives", items: [
+      { id: "ivm-propofol", t: "Propofol", unit: "mcg/kg/min" },
+      { id: "ivm-fentanyl", t: "Fentanyl", unit: "mcg/hr" },
+      { id: "ivm-dex", t: "Dexmedetomidine", unit: "mcg/kg/hr" },
+      { id: "ivm-ketamine", t: "Ketamine", unit: "mg/kg/hr" },
+      { id: "ivm-midazolam", t: "Midazolam", unit: "mg/hr" },
+    ]},
+    { label: "Vasopressor/Inotrope", items: [
+      { id: "ivm-norepi", t: "Norepinephrine", unit: "mcg/kg/min" },
+      { id: "ivm-vaso", t: "Vasopressin", unit: "units/hr" },
+      { id: "ivm-milrinone", t: "Milrinone", unit: "mcg/kg/min" },
+      { id: "ivm-dobut", t: "Dobutamine", unit: "mcg/kg/min" },
+    ]},
+    { label: "Cardiac", items: [
+      { id: "ivm-amio", t: "Amiodarone", unit: "mg/min" },
+      { id: "ivm-iso", t: "Isoproterenol", unit: "mcg/min" },
+      { id: "ivm-ntg", t: "Nitroglycerin", unit: "mcg/min" },
+      { id: "ivm-heparin", t: "Heparin", unit: "units/hr" },
+      { id: "ivm-furosemide", t: "Furosemide", unit: "mg/hr" },
+    ]},
+    { label: "IV Fluids", items: [
+      { id: "ivm-bicarb", t: "Sodium Bicarbonate", unit: "mL/hr" },
+      { id: "ivm-rl", t: "RL", unit: "mL/hr" },
+      { id: "ivm-ns", t: "NS", unit: "mL/hr" },
+      { id: "ivm-d5", t: "D5", unit: "mL/hr" },
+      { id: "ivm-d5ns", t: "D5NS", unit: "mL/hr" },
+      { id: "ivm-fluid-other", t: "Other", unit: "mL/hr" },
+    ]},
+  ];
+  var ALL_IV_MEDS_ITEMS = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(g.items); }, []);
+
+  // HFrEF/HFpEF/AF/ACS guideline-directed therapy checklists — folded directly into the
+  // Cardiovascular section of the Initial Workup so every patient's card follows the same
+  // head-to-toe layout with no separate switch controls. Each group has its own Y/N gate
+  // (toggleField) so a patient without, say, AF doesn't show (or generate follow-ups for) the
+  // AF checklist — only the conditions actually present are visible.
+  var CV_CONDITION_OPTIONS = ["", "Y", "N"];
+  var CV_CHECK_GROUPS = [
+    { label: "HFrEF (EF ≤40%)", shortLabel: "HFrEF", toggleField: "cvHasHfref", items: [
+      { id: "hfref-arni", t: "ARNI / ACEi / ARB", n: "Continued, held, or contraindicated — document why" },
+      { id: "hfref-bb", t: "BB" },
+      { id: "hfref-mra", t: "MRA", n: "EF ≤40% + HF or DM" },
+      { id: "hfref-sglt2", t: "SGLT2i" },
+    ]},
+    { label: "HFpEF (EF >40%, HF)", shortLabel: "HFpEF", toggleField: "cvHasHfpef", items: [
+      { id: "hfpef-sglt2", t: "SGLT2i" },
+      { id: "hfpef-mra", t: "MRA if applicable" },
+    ]},
+    { label: "Atrial Fibrillation", shortLabel: "AF", toggleField: "cvHasAf", items: [
+      { id: "af-oac", t: "Anticoagulation indicated & renal-dosed", n: "Assess bleeding risk (HAS-BLED or equivalent)" },
+      { id: "af-rate", t: "Rate / rhythm control plan clear" },
+    ]},
+    // EF < 40%? gate determines whether MRA is added to the bottom of the standard ACS med list.
+    { label: "ACS", shortLabel: "ACS", toggleField: "cvHasAcs", extraField: { label: "EF < 40%?", field: "cvAcsEfLt40", options: CV_CONDITION_OPTIONS }, items: [
+      { id: "acs-asa", t: "ASA" },
+      { id: "acs-p2y12", t: "P2Y12 inhibitor" },
+      { id: "acs-statin", t: "High-intensity statin" },
+      { id: "acs-ace", t: "ACEi/ARB", n: "Per EF" },
+      { id: "acs-bb", t: "BB", n: "Per EF" },
+      { id: "acs-mra", t: "MRA", n: "EF <40%", showIf: function(p){ return p.cvAcsEfLt40 === "Y"; } },
+    ]},
+  ];
+
+  var ABX_ITEMS = [
+    { id: "abx-appropriate", t: "Spectrum / indication still appropriate", n: "De-escalate per culture results when available" },
+  ];
+
+  var UNIT_LABELS = { ccu: "CCU", floor_im: "Cardiac Floor — IM MD", floor_hosp: "Cardiac Floor — Hospitalist" };
+  var UNIT_ORDER = ["ccu", "floor_im", "floor_hosp"];
+
+  function formatDateTime(dtStr){
+    if(!dtStr) return "";
+    var d = new Date(dtStr);
+    if(isNaN(d.getTime())) return dtStr;
+    return d.toLocaleDateString(undefined, { month:"short", day:"numeric" }) + " " + d.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
+  }
+
+  // Initial admission workup — one collapsible section, filled in once on admission and edited
+  // as things change. Everything that used to live behind separate focus-chip toggles (Antibiotics,
+  // Cultures, TDM, HFrEF/HFpEF/AF/ACS, IV Critical Care Meds, Respiratory Support) is now embedded
+  // directly in its head-to-toe location here — Core Review and IV→PO Conversion are the only other
+  // sections on the card. Unit grouping (CCU vs Cardiac Floor) and EF% are CCU-specific and unaffected.
+  var CV_EDEMA_GRADES = ["", "None", "1+", "2+", "3+"];
+  // Rendered as two rows: the first 6 (general/rhythm/rate/vitals/edema) then the remaining 7 (labs/imaging).
+  var WORKUP_CV_FIELDS = [
+    { label: "General", field: "workupCvGeneral" },
+    { label: "Rhythm", field: "workupCvRhythm" },
+    { label: "BP", field: "workupCvBp" },
+    { label: "Edema", field: "workupCvEdemaGrade", options: CV_EDEMA_GRADES },
+    { label: "TnI", field: "workupCvTni" },
+    { label: "LDL", field: "workupCvLdl" },
+    { label: "Lactate", field: "workupCvLactate" },
+    { label: "BNP", field: "workupCvBnp" },
+    { label: "Angio", field: "workupCvAngio" },
+    { label: "Echo", field: "workupCvEcho" },
+    { label: "ECG", field: "workupCvEcg" },
+  ];
+  var WORKUP_NEURO_FIELDS = [
+    { label: "General", field: "workupNeuroGeneral" },
+    { label: "GCS", field: "workupNeuroGcs" },
+    { label: "RASS", field: "workupNeuroRass" },
+    { label: "Limb Movement", field: "workupNeuroLimb" },
+    { label: "Imaging", field: "workupNeuroImaging" },
+    { label: "Plan", field: "workupNeuroPlan" },
+  ];
+  var GI_MED_ROUTES = ["", "PO whole", "PO crush", "Weighted NG", "Large Bore NG", "OG", "PEG/J"];
+  var WORKUP_GI_FIELDS = [
+    { label: "General", field: "workupGiGeneral" },
+    { label: "Med Route", field: "workupGiRoute", options: GI_MED_ROUTES },
+    { label: "Labs", field: "workupGiLabs", placeholder: "LFTs" },
+    { label: "BM", field: "workupGiBowelMovement" },
+    { label: "BM Date", field: "workupGiBowelMovementDate", type: "date" },
+    { label: "Imaging", field: "workupGiImaging" },
+  ];
+  var OTHER_YN_OPTIONS = ["", "Y", "N"];
+  var WORKUP_OTHER_FIELDS = [
+    { label: "Smoker", field: "workupOtherSmoker", options: OTHER_YN_OPTIONS },
+    { label: "NRT Ordered", field: "workupOtherNrt", options: OTHER_YN_OPTIONS, showIf: function(p){ return p.workupOtherSmoker === "Y"; } },
+  ];
+  var GU_YN_OPTIONS = ["", "Y", "N"];
+  var ID_ONABX_OPTIONS = ["", "Y", "N"];
+  var GU_HD_SCHEDULE_OPTIONS = ["", "MWF", "TTS", "Daily R/A"];
+  // Rendered as two rows: the first 8 (general/Cr/output/dialysis) then the remaining 2 (foley/imaging).
+  // Schedule only shows once Hemodialysis is set to Y.
+  var WORKUP_GU_FIELDS = [
+    { label: "General", field: "workupGuGeneral" },
+    { label: "Current Cr", field: "workupGuCurrentCr" },
+    { label: "Baseline Cr", field: "workupGuBaselineCr" },
+    { label: "CrCl", field: "crcl" },
+    { label: "Urine Output", field: "workupGuUrineOutput" },
+    { label: "Balance", field: "workupGuBalance" },
+    { label: "Foley Date", field: "workupGuFoleyDate", type: "date" },
+    { label: "Hemodialysis", field: "workupGuHd", options: GU_YN_OPTIONS },
+    { label: "Schedule", field: "workupGuHdSchedule", options: GU_HD_SCHEDULE_OPTIONS, showIf: function(p){ return p.workupGuHd === "Y"; } },
+    { label: "PD", field: "workupGuPd", options: GU_YN_OPTIONS },
+    { label: "Imaging", field: "workupGuImaging" },
+  ];
+  var WORKUP_HEME_FIELDS = [
+    { label: "Current Hgb", field: "workupHemeCurrent" },
+    { label: "Baseline", field: "workupHemeBaseline" },
+    { label: "Iron Studies", field: "workupHemeIron" },
+    { label: "Platelets", field: "workupHemePlt" },
+    { label: "Treatment Required?", field: "workupHemeTreatment", options: OTHER_YN_OPTIONS },
+  ];
+  var openWorkupSections = {};
+
+  // ================= DATE HELPERS =================
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function dueStatus(dateStr){
+    if(!dateStr) return "none";
+    if(dateStr < todayStr()) return "overdue";
+    if(dateStr === todayStr()) return "today";
+    return "ok";
+  }
+  function formatDue(dateStr){
+    if(!dateStr) return "No date";
+    var parts = dateStr.split("-");
+    var d = new Date(parts[0], parts[1]-1, parts[2]);
+    return d.toLocaleDateString(undefined, { month:"short", day:"numeric" });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+  // Auto-generated follow-ups store their originating area (e.g. "Core Review") separately from
+  // the item text so the compact Daily Rounds report can show just the item — everywhere else
+  // (on-screen task list, Patient Summary PDF, Workup Note) reconstructs "Area: item" as before.
+  function taskDisplayText(t){
+    return (t.area ? t.area + ": " : "") + t.text;
+  }
+
+  // ================= PATIENT LIST (Daily Rounds + Follow-Up) =================
+  var openPatients = {};
+
+  document.getElementById("rounds-add-btn").addEventListener("click", addPatient);
+  document.getElementById("rp-name").addEventListener("keydown", function(e){ if(e.key==="Enter") addPatient(); });
+  document.getElementById("rounds-export-btn").addEventListener("click", exportRoundsPDF);
+  document.getElementById("export-all-btn").addEventListener("click", exportAllPatients);
+
+  function addPatient(){
+    var nameEl = document.getElementById("rp-name");
+    var roomEl = document.getElementById("rp-room");
+    var ageEl = document.getElementById("rp-age");
+    var dxEl = document.getElementById("rp-dx");
+    var efEl = document.getElementById("rp-ef");
+    var unitEl = document.getElementById("rp-unit");
+    var name = nameEl.value.trim();
+    if(!name) return;
+    var p = {
+      id: uid(), name: name, room: roomEl.value.trim(), age: ageEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
+      unit: unitEl.value, tasks: [], focus: {}, crcl: "", coreChecks: {},
+      tdmAgent: "", tdmLevel: "", tdmNextTrough: "", tdmTarget: "", tdmFrequency: "", a1cLevel: "", a1cChanges: "", workupGlycemicAtTarget: "",
+      itemNotes: {}, checksByDate: {},
+      ivpoRows: [], abxRows: [], abxStopDate: "", abxDuration: "", cultures: [], respMode: "", respFio2: "", respFlowRate: "", respPeep: "", respSettings: "",
+      infusionsActive: false,
+      workupPmh: "", workupInfusionsOther: "",
+      workupNeuroGeneral: "", workupNeuroRass: "", workupNeuroGcs: "", workupNeuroLimb: "", workupNeuroImaging: "", workupNeuroPlan: "",
+      workupCvGeneral: "", workupCvRhythm: "", workupCvBp: "", workupCvEdemaGrade: "",
+      workupCvTni: "", workupCvBnp: "", workupCvLdl: "", workupCvLactate: "", workupCvEcho: "", workupCvEcg: "", workupCvAngio: "",
+      cvHasHfref: "", cvHasHfpef: "", cvHasAf: "", cvHasAcs: "", cvAcsEfLt40: "",
+      workupRespGeneral: "", workupRespCxr: "", workupRespChestCt: "", workupRespChestTube: "",
+      workupGiGeneral: "", workupGiBowelMovement: "", workupGiBowelMovementDate: "", workupGiFms: "", workupGiRoute: "", workupGiLabs: "", workupGiImaging: "",
+      workupGuGeneral: "", workupGuBaselineCr: "", workupGuUrineOutput: "", workupGuBalance: "", workupGuCurrentCr: "", workupGuImaging: "",
+      workupGuHd: "", workupGuHdSchedule: "", workupGuPd: "", workupGuFoleyDate: "",
+      workupIdOnAbx: "", workupIdWbc: "", workupIdTemp: "", workupIdCrp: "", workupIdProcalcitonin: "", workupIdImaging: "", workupGlycemicPocTrend: "",
+      workupHemeCurrent: "", workupHemeBaseline: "", workupHemeIron: "", workupHemePlt: "", workupHemeTreatment: "",
+      workupOtherSmoker: "", workupOtherNrt: "", workupOtherDrugCoverage: "",
+      workupHomeMeds: ""
+    };
+    state.patients.unshift(p);
+    nameEl.value = ""; roomEl.value = ""; ageEl.value = ""; dxEl.value = ""; efEl.value = "";
+    saveState();
+    renderPatients();
+  }
+
+  function deletePatient(id){
+    if(!confirm("Remove this patient? Use this when discharged or transferred off your beds. This also removes their follow-up tasks and review history.")) return;
+    state.patients = state.patients.filter(function(p){ return p.id !== id; });
+    saveState();
+    renderPatients();
+  }
+
+  function updatePatientField(pid, field, value){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    p[field] = value;
+    saveState();
+  }
+
+  // Natural/numeric-aware room sort so "2" < "10" and "12A" sorts sensibly; blank rooms sort last.
+  function naturalRoomCompare(a, b){
+    var ar = (a.room || "").trim();
+    var br = (b.room || "").trim();
+    if(!ar && !br) return 0;
+    if(!ar) return 1;
+    if(!br) return -1;
+    return ar.localeCompare(br, undefined, { numeric: true, sensitivity: "base" });
+  }
+
+  function groupedPatients(){
+    var groups = { ccu: [], floor_im: [], floor_hosp: [] };
+    state.patients.forEach(function(p){ (groups[p.unit] || groups.floor_im).push(p); });
+    Object.keys(groups).forEach(function(k){ groups[k].sort(naturalRoomCompare); });
+    return groups;
+  }
+
+  // ---- Follow-up task badge ----
+  function taskBadge(p){
+    var statuses = p.tasks.filter(function(t){ return !t.done; }).map(function(t){ return dueStatus(t.due); });
+    if(statuses.indexOf("overdue") !== -1) return { cls:"overdue", label: statuses.filter(s=>s==="overdue").length + " overdue" };
+    if(statuses.indexOf("today") !== -1) return { cls:"today", label: statuses.filter(s=>s==="today").length + " due today" };
+    if(statuses.length > 0) return { cls:"ok", label: statuses.length + " open task" + (statuses.length===1?"":"s") };
+    return { cls:"none", label:"No open tasks" };
+  }
+
+  var CORE_ITEM_IDS = ROUNDS_CORE_ITEMS.map(function(i){ return i.id; });
+
+  // ---- Daily rounds review badge ----
+  function roundsBadge(p){
+    var coreDone = ROUNDS_CORE_ITEMS.filter(function(i){ return p.coreChecks[i.id]; }).length;
+    var coreTotal = ROUNDS_CORE_ITEMS.length;
+    var cls = coreDone === coreTotal ? "ok" : (coreDone === 0 ? "none" : "today");
+    return { cls: cls, label: coreDone + "/" + coreTotal + " core reviewed" };
+  }
+
+  function getTodayChecks(p){
+    return p.checksByDate[todayStr()] || {};
+  }
+  function getPrevChecks(p){
+    var dates = Object.keys(p.checksByDate).filter(function(d){ return d < todayStr(); }).sort();
+    if(!dates.length) return {};
+    return p.checksByDate[dates[dates.length-1]] || {};
+  }
+  // Non-core checklist items reset daily (with a "prior day" hint) since those can genuinely change day to day.
+  function toggleRoundsCheck(pid, itemId){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var t = todayStr();
+    if(!p.checksByDate[t]) p.checksByDate[t] = {};
+    p.checksByDate[t][itemId] = !p.checksByDate[t][itemId];
+    saveState();
+    renderPatients();
+  }
+  // Core Review items persist once checked — med rec, VTE assessment etc. rarely need re-confirming daily.
+  function toggleCoreCheck(pid, itemId){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    p.coreChecks[itemId] = !p.coreChecks[itemId];
+    saveState();
+    renderPatients();
+  }
+  // Purely a visibility toggle — hides the IV Meds checklist for patients with no drips running,
+  // without clearing anything already checked underneath.
+  function toggleInfusionsActive(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    p.infusionsActive = !p.infusionsActive;
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+  function updateItemNote(pid, itemId, value){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    if(value) p.itemNotes[itemId] = value;
+    else delete p.itemNotes[itemId];
+    saveState();
+  }
+  // ---- IV -> PO conversion multi-row picker ----
+  function addIvPoRow(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    p.ivpoRows.push({ id: uid(), drugClass: "", otherText: "", note: "" });
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+  function removeIvPoRow(pid, rid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    p.ivpoRows = p.ivpoRows.filter(function(r){ return r.id !== rid; });
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+  function updateIvPoRow(pid, rid, field, value){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var row = p.ivpoRows.find(function(r){ return r.id === rid; });
+    if(!row) return;
+    row[field] = value;
+    saveState();
+  }
+
+  // ---- Antibiotic multi-row picker (up to ABX_ROWS_MAX lines) ----
+  function addAbxRow(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    if(p.abxRows.length >= ABX_ROWS_MAX) return;
+    p.abxRows.push({ id: uid(), drug: "", otherText: "", dose: "" });
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+  function removeAbxRow(pid, rid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    p.abxRows = p.abxRows.filter(function(r){ return r.id !== rid; });
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+  function updateAbxRow(pid, rid, field, value){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var row = p.abxRows.find(function(r){ return r.id === rid; });
+    if(!row) return;
+    row[field] = value;
+    saveState();
+  }
+
+  // ---- Cultures multi-row picker ----
+  function addCultureRow(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    p.cultures.push({ id: uid(), site: "", status: "Pending", organism: "", sens: "" });
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+  function removeCultureRow(pid, rid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    p.cultures = p.cultures.filter(function(c){ return c.id !== rid; });
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+  function updateCultureRow(pid, rid, field, value){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var row = p.cultures.find(function(c){ return c.id === rid; });
+    if(!row) return;
+    row[field] = value;
+    if(field === "status" && value === "Negative"){ row.organism = ""; row.sens = ""; }
+    saveState();
+  }
+
+  function workupTextareaHtml(p, title, field, placeholder){
+    return '<div class="workup-subtitle">' + escapeHtml(title) + '</div>' +
+      '<textarea class="workup-textarea" data-field="' + field + '" data-pid="' + p.id + '" placeholder="' + escapeHtml(placeholder || "") + '">' + escapeHtml(p[field]) + '</textarea>';
+  }
+  function workupFieldsRowHtml(p, fields){
+    return '<div class="rounds-head-row">' +
+      fields.filter(function(f){ return !f.showIf || f.showIf(p); }).map(function(f){
+        if(f.options){
+          return '<div class="rounds-field"><label>' + escapeHtml(f.label) + '</label><select data-field="' + f.field + '" data-pid="' + p.id + '">' +
+            f.options.map(function(o){ return '<option value="' + escapeHtml(o) + '"' + (p[f.field] === o ? " selected" : "") + '>' + (o || "— Select —") + '</option>'; }).join("") +
+          '</select></div>';
+        }
+        return '<div class="rounds-field"><label>' + escapeHtml(f.label) + '</label><input type="' + (f.type || "text") + '" value="' + escapeHtml(p[f.field]) + '" data-field="' + f.field + '" data-pid="' + p.id + '" placeholder="' + escapeHtml(f.placeholder || "") + '" style="width:150px;"></div>';
+      }).join("") +
+    '</div>';
+  }
+  function checklistItemsHtml(p, items, today, prev){
+    return items.filter(function(item){ return !item.showIf || item.showIf(p); }).map(function(item){
+      var checked = !!today[item.id];
+      return roundsItemHtml(p.id, item, checked, !checked && !!prev[item.id], p.itemNotes);
+    }).join("");
+  }
+
+  // Initial Workup — a single head-to-toe form. Everything that used to live behind separate
+  // focus-chip toggles (Antibiotics/Cultures/TDM, HFrEF/HFpEF/AF/ACS, IV Critical Care Meds,
+  // Respiratory Support) is embedded directly here in its clinical location; Core Review and
+  // IV→PO Conversion remain as their own sections elsewhere on the card.
+  function buildWorkupSectionHtml(p){
+    var isOpen = !!openWorkupSections[p.id];
+    var today = getTodayChecks(p);
+    var prev = getPrevChecks(p);
+
+    var html = "";
+    html += workupTextareaHtml(p, "Past Medical History", "workupPmh");
+
+    html += '<div class="workup-subtitle">Infusions</div>' +
+      '<div class="rounds-item">' +
+        '<input type="checkbox" id="infusions-active-' + p.id + '" data-infusions-toggle="' + p.id + '" ' + (p.infusionsActive ? "checked" : "") + '>' +
+        '<label for="infusions-active-' + p.id + '">Patient on IV infusions</label>' +
+      '</div>';
+    if(p.infusionsActive){
+      html += '<div class="iv-groups-row">' +
+        IV_MEDS_GROUPS.map(function(g){
+          return '<div>' +
+            '<div class="workup-subtitle" style="margin-top:0; text-transform:none; font-weight:600; color:var(--text);">' + escapeHtml(g.label) + '</div>' +
+            checklistItemsHtml(p, g.items, today, prev) +
+          '</div>';
+        }).join("") +
+      '</div>' +
+      '<div class="rounds-head-row" style="margin-top:6px;">' +
+        '<div class="rounds-field" style="flex:1;"><label>Other Infusions</label><input type="text" value="' + escapeHtml(p.workupInfusionsOther) + '" data-field="workupInfusionsOther" data-pid="' + p.id + '" placeholder="anything not listed above" style="width:100%;"></div>' +
+      '</div>';
+    }
+
+    html += '<div class="workup-subtitle">Neuro</div>' + workupFieldsRowHtml(p, WORKUP_NEURO_FIELDS);
+
+    html += '<div class="workup-subtitle">CV</div>' +
+      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(0, 4)) +
+      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(4, 8)) +
+      workupFieldsRowHtml(p, WORKUP_CV_FIELDS.slice(8)) +
+      '<div class="iv-groups-row" style="margin-top:6px;">' +
+        CV_CHECK_GROUPS.map(function(g){
+          var has = p[g.toggleField] === "Y";
+          var extraFieldHtml = "";
+          if(has && g.extraField){
+            var ef = g.extraField;
+            extraFieldHtml = '<div class="rounds-field" style="margin:4px 0;"><label>' + escapeHtml(ef.label) + '</label><select data-field="' + ef.field + '" data-pid="' + p.id + '" style="font-size:12px; padding:3px 6px;">' +
+              ef.options.map(function(o){ return '<option value="' + o + '"' + (p[ef.field] === o ? " selected" : "") + '>' + (o || "— Select —") + '</option>'; }).join("") +
+            '</select></div>';
+          }
+          return '<div>' +
+            '<div class="workup-subtitle" style="margin-top:0; text-transform:none; font-weight:600; color:var(--text); display:flex; align-items:center; justify-content:space-between; gap:6px;">' +
+              '<span>' + escapeHtml(g.label) + '</span>' +
+              '<select data-field="' + g.toggleField + '" data-pid="' + p.id + '" style="font-size:11px; padding:2px 4px; width:54px; flex-shrink:0;">' +
+                CV_CONDITION_OPTIONS.map(function(o){ return '<option value="' + o + '"' + (p[g.toggleField] === o ? " selected" : "") + '>' + (o || "—") + '</option>'; }).join("") +
+              '</select>' +
+            '</div>' +
+            extraFieldHtml +
+            (has ? checklistItemsHtml(p, g.items, today, prev) : '') +
+          '</div>';
+        }).join("") +
+      '</div>';
+
+    html += '<div class="workup-subtitle">Resp</div>' +
+      '<div class="rounds-head-row">' +
+        '<div class="rounds-field"><label>General</label><input type="text" value="' + escapeHtml(p.workupRespGeneral) + '" data-field="workupRespGeneral" data-pid="' + p.id + '" style="width:150px;"></div>' +
+        '<div class="rounds-field"><label>Mode</label><select data-field="respMode" data-pid="' + p.id + '">' +
+          RESP_MODES.map(function(m){ return '<option value="' + escapeHtml(m) + '"' + (p.respMode === m ? " selected" : "") + '>' + (m || "— Select —") + '</option>'; }).join("") +
+        '</select></div>' +
+        '<div class="rounds-field"><label>FiO2 %</label><input type="number" value="' + escapeHtml(p.respFio2) + '" data-field="respFio2" data-pid="' + p.id + '" style="width:70px;"></div>' +
+        '<div class="rounds-field"><label>Flow Rate</label><input type="text" value="' + escapeHtml(p.respFlowRate) + '" data-field="respFlowRate" data-pid="' + p.id + '" placeholder="L/min" style="width:80px;"></div>' +
+        '<div class="rounds-field"><label>Support</label><input type="text" value="' + escapeHtml(p.respSettings) + '" data-field="respSettings" data-pid="' + p.id + '" placeholder="e.g. PS 10, rate 14..." style="width:130px;"></div>' +
+        '<div class="rounds-field"><label>PEEP</label><input type="number" value="' + escapeHtml(p.respPeep) + '" data-field="respPeep" data-pid="' + p.id + '" style="width:65px;"></div>' +
+      '</div>' +
+      workupFieldsRowHtml(p, [{ label: "CXR", field: "workupRespCxr" }, { label: "Chest CT", field: "workupRespChestCt" }, { label: "Chest Tube", field: "workupRespChestTube" }]);
+
+    html += '<div class="workup-subtitle">GI</div>' + workupFieldsRowHtml(p, WORKUP_GI_FIELDS);
+
+    html += '<div class="workup-subtitle">GU</div>' +
+      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(0, 7)) +
+      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(7));
+
+    html += '<div class="workup-subtitle">ID</div>' +
+      '<div class="rounds-head-row">' +
+        '<div class="rounds-field"><label>On Antibiotic?</label><select data-field="workupIdOnAbx" data-pid="' + p.id + '">' +
+          ID_ONABX_OPTIONS.map(function(o){ return '<option value="' + o + '"' + (p.workupIdOnAbx === o ? " selected" : "") + '>' + (o || "— Select —") + '</option>'; }).join("") +
+        '</select></div>' +
+      '</div>';
+    if(p.workupIdOnAbx === "Y"){
+      html +=
+        workupFieldsRowHtml(p, [
+          { label: "WBC", field: "workupIdWbc" },
+          { label: "Temp", field: "workupIdTemp" },
+          { label: "CRP", field: "workupIdCrp" },
+          { label: "Procalcitonin", field: "workupIdProcalcitonin" },
+          { label: "Imaging", field: "workupIdImaging" },
+        ]) +
+        buildCulturesHtml(p) +
+        buildAbxRowsHtml(p);
+    }
+
+    html += '<div class="workup-subtitle">POC</div>' +
+      '<div class="rounds-head-row">' +
+        '<div class="rounds-field"><label>POC Trend</label><input type="text" value="' + escapeHtml(p.workupGlycemicPocTrend) + '" data-field="workupGlycemicPocTrend" data-pid="' + p.id + '" style="width:170px;"></div>' +
+        '<div class="rounds-field"><label>A1C</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:65px;"></div>' +
+        '<div class="rounds-field" style="flex:1; min-width:180px;"><label>Therapy</label><input type="text" value="' + escapeHtml(p.a1cChanges) + '" data-field="a1cChanges" data-pid="' + p.id + '" style="width:100%;"></div>' +
+        '<div class="rounds-field"><label>At Target?</label><select data-field="workupGlycemicAtTarget" data-pid="' + p.id + '">' +
+          OTHER_YN_OPTIONS.map(function(o){ return '<option value="' + o + '"' + (p.workupGlycemicAtTarget === o ? " selected" : "") + '>' + (o || "— Select —") + '</option>'; }).join("") +
+        '</select></div>' +
+      '</div>';
+
+    html += '<div class="workup-subtitle">Hgb</div>' + workupFieldsRowHtml(p, WORKUP_HEME_FIELDS);
+
+    html += '<div class="workup-subtitle">TDM</div>' +
+      '<div class="rounds-head-row">' +
+        '<div class="rounds-field"><label>Agent</label><select data-field="tdmAgent" data-pid="' + p.id + '">' +
+          TDM_AGENTS.map(function(a){ return '<option value="' + a + '"' + (p.tdmAgent === a ? " selected" : "") + '>' + (a || "— Select —") + '</option>'; }).join("") +
+        '</select></div>' +
+        '<div class="rounds-field"><label>Level</label><input type="text" value="' + escapeHtml(p.tdmLevel) + '" data-field="tdmLevel" data-pid="' + p.id + '" placeholder="or Pending" style="width:100px;"></div>' +
+        '<div class="rounds-field"><label>Date</label><input type="datetime-local" value="' + escapeHtml(p.tdmNextTrough) + '" data-field="tdmNextTrough" data-pid="' + p.id + '" style="width:190px;"></div>' +
+        '<div class="rounds-field"><label>Target Level</label><input type="text" value="' + escapeHtml(p.tdmTarget) + '" data-field="tdmTarget" data-pid="' + p.id + '" style="width:110px;"></div>' +
+        '<div class="rounds-field"><label>Monitoring Frequency</label><input type="text" value="' + escapeHtml(p.tdmFrequency) + '" data-field="tdmFrequency" data-pid="' + p.id + '" style="width:170px;"></div>' +
+      '</div>' +
+      '<button type="button" class="btn small secondary" data-tdm-note="' + p.id + '" style="margin:8px 0;">Generate TDM Consult Note</button>';
+
+    html += '<div class="workup-subtitle">Other</div>' +
+      workupFieldsRowHtml(p, WORKUP_OTHER_FIELDS) +
+      workupFieldsRowHtml(p, [{ label: "Drug Coverage", field: "workupOtherDrugCoverage", options: OTHER_YN_OPTIONS }]);
+
+    html += workupTextareaHtml(p, "Home Medications / Medication Reconciliation", "workupHomeMeds");
+
+    return '<div class="rounds-section">' +
+      '<div class="rounds-section-title workup-toggle" data-workup-toggle="' + p.id + '">' +
+        '<span>Initial Workup</span><span>' + (isOpen ? "▾" : "▸") + '</span>' +
+      '</div>' +
+      '<div class="workup-body' + (isOpen ? " open" : "") + '" id="workup-body-' + p.id + '">' +
+        html +
+        '<button type="button" class="btn small secondary" data-workup-note="' + p.id + '" style="margin-top:10px;">Generate Workup Note</button>' +
+        '<button type="button" class="btn small secondary" data-workup-note-copy="' + p.id + '" style="margin-top:10px; margin-left:6px;">Copy Workup Note</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function roundsItemHtml(pid, item, checked, showHint, notes, domSuffix){
+    var noteVal = (notes && notes[item.id]) || "";
+    var notePlaceholder = item.unit ? "dose" : "note (e.g. reason if held)";
+    var domId = "rchk-" + pid + "-" + item.id + (domSuffix || "");
+    return '<div class="rounds-item">' +
+      '<input type="checkbox" id="' + domId + '" data-pid="' + pid + '" data-item="' + item.id + '" ' + (checked ? "checked" : "") + '>' +
+      '<label for="' + domId + '">' + escapeHtml(item.t) + (item.n ? '<span class="note">' + escapeHtml(item.n) + '</span>' : '') + '</label>' +
+      (showHint ? '<span class="prev-hint" data-carry-item="' + pid + '|' + item.id + '" title="Checked on a previous day — click to confirm for today">✓ prior</span>' : '') +
+      '<input type="text" class="item-note-input' + (item.unit ? ' item-dose-input' : '') + '" placeholder="' + escapeHtml(notePlaceholder) + '" value="' + escapeHtml(noteVal) + '" data-item-note="' + pid + '|' + item.id + '">' +
+      (item.unit ? '<span class="item-note-unit">' + escapeHtml(item.unit) + '</span>' : '') +
+    '</div>';
+  }
+
+  function buildAbxRowsHtml(p){
+    var rowsHtml = p.abxRows.map(function(r){
+      return '<div class="picker-row" data-abx-row="' + r.id + '">' +
+        '<div class="rounds-field"><label>Antibiotic</label><input type="text" value="' + escapeHtml(r.drug) + '" data-abx-field="drug" data-pid="' + p.id + '" data-rid="' + r.id + '" placeholder="e.g. Vancomycin" style="width:150px;"></div>' +
+        '<div class="rounds-field"><label>Dose</label><input type="text" value="' + escapeHtml(r.dose) + '" data-abx-field="dose" data-pid="' + p.id + '" data-rid="' + r.id + '" placeholder="e.g. 1g IV q12h" style="width:150px;"></div>' +
+        '<button type="button" class="btn small danger" data-abx-remove="' + p.id + '|' + r.id + '">×</button>' +
+      '</div>';
+    }).join("");
+    var addBtnHtml = p.abxRows.length < ABX_ROWS_MAX
+      ? '<button type="button" class="btn small secondary" data-abx-add="' + p.id + '">+ Add Antibiotic</button>'
+      : '<div style="font-size:11px; color:var(--text-faint);">Max ' + ABX_ROWS_MAX + ' antibiotics</div>';
+    return '<div class="workup-subtitle" style="margin-top:0;">Antibiotics</div>' +
+      (rowsHtml || '<div class="empty" style="padding:6px 0;">No antibiotics added yet.</div>') +
+      '<div class="rounds-head-row" style="margin-top:4px; align-items:center;">' +
+        addBtnHtml +
+        '<div class="rounds-field"><label>ASO / Stop Date</label><input type="date" value="' + escapeHtml(p.abxStopDate) + '" data-field="abxStopDate" data-pid="' + p.id + '" style="width:150px;"></div>' +
+        '<div class="rounds-field"><label>Duration</label><input type="text" value="' + escapeHtml(p.abxDuration) + '" data-field="abxDuration" data-pid="' + p.id + '" placeholder="e.g. 7 days" style="width:110px;"></div>' +
+      '</div>';
+  }
+
+  function buildIvPoRowsHtml(p){
+    var rowsHtml = p.ivpoRows.map(function(r){
+      var isOther = r.drugClass === "Other";
+      return '<div class="picker-row" data-ivpo-row="' + r.id + '">' +
+        '<div class="rounds-field"><label>Drug / Class</label><select data-ivpo-field="drugClass" data-pid="' + p.id + '" data-rid="' + r.id + '">' +
+          IV_PO_DRUG_CLASSES.map(function(c){ return '<option value="' + escapeHtml(c) + '"' + (r.drugClass === c ? " selected" : "") + '>' + (c || "— Select —") + '</option>'; }).join("") +
+        '</select></div>' +
+        (isOther ? '<div class="rounds-field"><label>Specify</label><input type="text" value="' + escapeHtml(r.otherText) + '" data-ivpo-field="otherText" data-pid="' + p.id + '" data-rid="' + r.id + '" style="width:140px;"></div>' : '') +
+        '<div class="rounds-field" style="flex:1; min-width:160px;"><label>Comment</label><input type="text" value="' + escapeHtml(r.note) + '" data-ivpo-field="note" data-pid="' + p.id + '" data-rid="' + r.id + '" placeholder="e.g. tolerating diet, switch when NGT out" style="width:100%;"></div>' +
+        '<button type="button" class="btn small danger" data-ivpo-remove="' + p.id + '|' + r.id + '">×</button>' +
+      '</div>';
+    }).join("");
+    return '<div class="workup-subtitle">IV → PO Conversion</div>' +
+      (rowsHtml || '<div class="empty" style="padding:6px 0;">No lines added yet.</div>') +
+      '<button type="button" class="btn small secondary" data-ivpo-add="' + p.id + '" style="margin-top:6px;">+ Add Line</button>';
+  }
+
+  // Barriers to D/C — a standalone checklist (outside the collapsible Initial Workup, same as
+  // IV→PO Conversion always was) grouping the items that most often hold up discharge. Med Rec
+  // and Renal Dosing no longer have their own checkbox here — they're always pulled into Follow-Ups
+  // when unchecked, so a manual toggle was redundant. VTE prophylaxis, ASP review (when on
+  // antibiotics), and IV→PO Conversion remain.
+  function buildBarriersSectionHtml(p){
+    var today = getTodayChecks(p);
+    var prev = getPrevChecks(p);
+    var vteItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "vte"; })[0];
+    var idAppropriateItem = ABX_ITEMS[0];
+
+    var html = roundsItemHtml(p.id, vteItem, !!p.coreChecks[vteItem.id], false, p.itemNotes, "-dc");
+    if(p.workupIdOnAbx === "Y"){
+      html += roundsItemHtml(p.id, idAppropriateItem, !!today[idAppropriateItem.id], !today[idAppropriateItem.id] && !!prev[idAppropriateItem.id], p.itemNotes, "-dc");
+    }
+    html += buildIvPoRowsHtml(p);
+
+    return '<div class="rounds-section">' +
+      '<div class="rounds-section-title">Barriers to D/C</div>' +
+      html +
+    '</div>';
+  }
+
+  function buildCulturesHtml(p){
+    var rowsHtml = p.cultures.map(function(c){
+      return '<div class="picker-row" data-cx-row="' + c.id + '">' +
+        '<div class="rounds-field"><label>Site</label><input type="text" value="' + escapeHtml(c.site) + '" data-cx-field="site" data-pid="' + p.id + '" data-rid="' + c.id + '" placeholder="e.g. Blood" style="width:120px;"></div>' +
+        '<div class="rounds-field"><label>Status</label><select data-cx-field="status" data-pid="' + p.id + '" data-rid="' + c.id + '">' +
+          CULTURE_STATUSES.map(function(s){ return '<option value="' + s + '"' + (c.status === s ? " selected" : "") + '>' + s + '</option>'; }).join("") +
+        '</select></div>' +
+        (c.status === "Negative" ? "" :
+        '<div class="rounds-field"><label>Organism</label><input type="text" value="' + escapeHtml(c.organism) + '" data-cx-field="organism" data-pid="' + p.id + '" data-rid="' + c.id + '" style="width:130px;"></div>' +
+        '<div class="rounds-field" style="flex:1; min-width:150px;"><label>Sensitivities</label><input type="text" value="' + escapeHtml(c.sens) + '" data-cx-field="sens" data-pid="' + p.id + '" data-rid="' + c.id + '" style="width:100%;"></div>') +
+        '<button type="button" class="btn small danger" data-cx-remove="' + p.id + '|' + c.id + '">×</button>' +
+      '</div>';
+    }).join("");
+    return '<div class="workup-subtitle" style="margin-top:10px;">Cultures</div>' +
+      (rowsHtml || '<div class="empty" style="padding:4px 0;">No cultures added.</div>') +
+      '<button type="button" class="btn small secondary" data-cx-add="' + p.id + '" style="margin-top:4px;">+ Add Culture</button>';
+  }
+
+  // ---- Follow-up tasks ----
+  function taskRowHtml(pid, t){
+    var status = t.done ? "" : dueStatus(t.due);
+    var dueCls = status === "overdue" ? "overdue" : (status === "today" ? "today" : "");
+    var displayText = taskDisplayText(t);
+    return '<div class="task-row">' +
+      '<input type="checkbox" class="task-check" data-pid="' + pid + '" data-tid="' + t.id + '" ' + (t.done ? "checked" : "") + '>' +
+      '<div class="task-text ' + (t.done ? "done" : "") + '">' + escapeHtml(displayText) +
+        (t.priority === "urgent" ? ' <span class="task-priority urgent">Urgent</span>' : '') +
+      '</div>' +
+      '<div class="task-due ' + dueCls + '">' + formatDue(t.due) + '</div>' +
+      '<button class="del-task" data-pid="' + pid + '" data-tid="' + t.id + '" title="Delete">×</button>' +
+    '</div>';
+  }
+
+  function addTask(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var textEl = document.getElementById("nt-text-" + pid);
+    var dateEl = document.getElementById("nt-date-" + pid);
+    var priEl = document.getElementById("nt-pri-" + pid);
+    var text = textEl.value.trim();
+    if(!text) return;
+    p.tasks.push({ id: uid(), text: text, due: dateEl.value || "", priority: priEl.value, done: false });
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+
+  function toggleTask(pid, tid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var t = p.tasks.find(function(t){ return t.id === tid; });
+    if(!t) return;
+    t.done = !t.done;
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+
+  function deleteTask(pid, tid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    p.tasks = p.tasks.filter(function(t){ return t.id !== tid; });
+    saveState();
+    openPatients[pid] = true;
+    renderPatients();
+  }
+
+  // Creates a follow-up task for each currently-unchecked core/Cardiovascular/Antibiotics item,
+  // skipping items that already have an open (not done) auto-generated task. IV Critical Care
+  // Medications work the opposite way — a checked (currently running) drip is what needs ongoing
+  // follow-up/reassessment, not an unchecked one — so that area flags followUpWhenChecked.
+  // Pending cultures also generate a follow-up (to check back once resulted) even though they
+  // aren't a checklist item.
+  // Med Rec, VTE prophylaxis, Renal Dosing, and ASP review live in the standalone "Barriers to
+  // D/C" checklist — this maps each to that area so generated follow-up text reflects where it's
+  // actually found on the card.
+  var CORE_ITEM_AREAS = { medrec: "Barriers to D/C", vte: "Barriers to D/C", renaldose: "Barriers to D/C", "abx-appropriate": "Barriers to D/C" };
+  function addFollowUpsForUnchecked(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var today = getTodayChecks(p);
+    var candidates = ROUNDS_CORE_ITEMS.map(function(item){ return { item: item, area: CORE_ITEM_AREAS[item.id] || "Core Review", checked: !!p.coreChecks[item.id], followUpWhenChecked: false }; });
+    // Only condition groups actually toggled to Y generate follow-ups — a patient without AF,
+    // for example, shouldn't get a follow-up nagging about unchecked AF items.
+    CV_CHECK_GROUPS.forEach(function(g){
+      if(p[g.toggleField] !== "Y") return;
+      g.items.forEach(function(item){
+        if(item.showIf && !item.showIf(p)) return;
+        candidates.push({ item: item, area: g.shortLabel, checked: !!today[item.id], followUpWhenChecked: false });
+      });
+    });
+    if(p.workupIdOnAbx === "Y"){
+      ABX_ITEMS.forEach(function(item){ candidates.push({ item: item, area: CORE_ITEM_AREAS[item.id] || "Antibiotics", checked: !!today[item.id], followUpWhenChecked: false }); });
+    }
+    ALL_IV_MEDS_ITEMS.forEach(function(item){ candidates.push({ item: item, area: "IV Critical Care Medications", checked: !!today[item.id], followUpWhenChecked: true }); });
+
+    var openSourceIds = p.tasks.filter(function(t){ return !t.done; }).map(function(t){ return t.sourceItem; });
+    var added = 0;
+    candidates.forEach(function(c){
+      var wantsFollowUp = c.followUpWhenChecked ? c.checked : !c.checked;
+      if(!wantsFollowUp) return;
+      if(openSourceIds.indexOf(c.item.id) !== -1) return;
+      var note = p.itemNotes[c.item.id];
+      // IV Critical Care Medications are checked-triggered (a running drip needs reassessment) —
+      // for those, list just the drug name without the dose note; everything else pulls its note in.
+      var text = c.item.t + (!c.followUpWhenChecked && note ? " — " + note : "");
+      p.tasks.push({ id: uid(), text: text, area: c.area, due: "", priority: "routine", done: false, sourceItem: c.item.id });
+      added++;
+    });
+
+    if(p.cultures){
+      p.cultures.forEach(function(c){
+        if(c.status !== "Pending") return;
+        var sourceId = "cx-" + c.id;
+        if(openSourceIds.indexOf(sourceId) !== -1) return;
+        var label = c.site || "Culture";
+        var text = label + " culture pending" + (c.organism ? " (organism: " + c.organism + ")" : "");
+        p.tasks.push({ id: uid(), text: text, area: "Antibiotics", due: "", priority: "routine", done: false, sourceItem: sourceId });
+        added++;
+      });
+    }
+
+    // An antibiotic with no ASO/stop date set yet needs one — list it by name.
+    if(p.abxRows && !p.abxStopDate){
+      p.abxRows.forEach(function(r){
+        var label = r.drug;
+        if(!label) return;
+        var sourceId = "abx-aso-" + r.id;
+        if(openSourceIds.indexOf(sourceId) !== -1) return;
+        p.tasks.push({ id: uid(), text: label, area: "Antibiotics", due: "", priority: "routine", done: false, sourceItem: sourceId });
+        added++;
+      });
+    }
+
+    if(p.ivpoRows){
+      p.ivpoRows.forEach(function(r){
+        if(!r.drugClass) return;
+        var sourceId = "ivpo-" + r.id;
+        if(openSourceIds.indexOf(sourceId) !== -1) return;
+        var label = r.drugClass === "Other" ? (r.otherText || "Other") : r.drugClass;
+        var text = label + (r.note ? " — " + r.note : "");
+        p.tasks.push({ id: uid(), text: text, area: "IV → PO Conversion", due: "", priority: "routine", done: false, sourceItem: sourceId });
+        added++;
+      });
+    }
+
+    // "Other" safety-net follow-ups: a smoker without NRT ordered, or unconfirmed drug coverage.
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt === "N"){
+      var nrtSourceId = "other-nrt";
+      if(openSourceIds.indexOf(nrtSourceId) === -1){
+        p.tasks.push({ id: uid(), text: "NRT", area: "Other", due: "", priority: "routine", done: false, sourceItem: nrtSourceId });
+        added++;
+      }
+    }
+    if(p.workupOtherDrugCoverage === "N"){
+      var coverageSourceId = "other-drugcoverage";
+      if(openSourceIds.indexOf(coverageSourceId) === -1){
+        p.tasks.push({ id: uid(), text: "Drug Coverage", area: "Other", due: "", priority: "routine", done: false, sourceItem: coverageSourceId });
+        added++;
+      }
+    }
+
+    // POC not at target needs follow-up; at target does not.
+    if(p.workupGlycemicAtTarget === "N"){
+      var pocSourceId = "poc-attarget";
+      if(openSourceIds.indexOf(pocSourceId) === -1){
+        p.tasks.push({ id: uid(), text: "Not at target", area: "POC", due: "", priority: "routine", done: false, sourceItem: pocSourceId });
+        added++;
+      }
+    }
+
+    // Hgb treatment required needs follow-up; not required does not.
+    if(p.workupHemeTreatment === "Y"){
+      var hgbSourceId = "hgb-treatment";
+      if(openSourceIds.indexOf(hgbSourceId) === -1){
+        p.tasks.push({ id: uid(), text: "Treatment required", area: "Hgb", due: "", priority: "routine", done: false, sourceItem: hgbSourceId });
+        added++;
+      }
+    }
+
+    // A TDM level still pending needs a follow-up to check back once resulted.
+    if(p.tdmLevel && p.tdmLevel.trim().toLowerCase() === "pending"){
+      var tdmSourceId = "tdm-level-pending";
+      if(openSourceIds.indexOf(tdmSourceId) === -1){
+        p.tasks.push({ id: uid(), text: (p.tdmAgent ? p.tdmAgent + " level" : "Level") + " pending", area: "TDM", due: "", priority: "routine", done: false, sourceItem: tdmSourceId });
+        added++;
+      }
+    }
+
+    if(added === 0){
+      alert("Nothing to add — all reviewed items are checked, or already have an open follow-up.");
+      return;
+    }
+    saveState();
+    renderPatients();
+  }
+
+  // ---- Main render ----
+  // Builds a CSS selector identifying a field uniquely enough to re-find its replacement after a
+  // rebuild (e.g. "[data-field=...][data-pid=...]"). Used to restore focus/cursor position across
+  // renderPatients() rebuilding the whole list — otherwise every field's "change" (fires on blur)
+  // would rebuild the DOM out from under whatever the user just clicked or tabbed into next,
+  // silently dropping that focus and requiring a second click to actually land in the new field.
+  function fieldIdentitySelector(el){
+    if(!el || !el.getAttribute) return null;
+    var markers = ["data-item-note", "data-field", "data-item", "data-abx-field", "data-ivpo-field", "data-cx-field"];
+    for(var i = 0; i < markers.length; i++){
+      var val = el.getAttribute(markers[i]);
+      if(val === null) continue;
+      var sel = "[" + markers[i] + "=\"" + val.replace(/["\\]/g, "\\$&") + "\"]";
+      var pid = el.getAttribute("data-pid");
+      var rid = el.getAttribute("data-rid");
+      if(pid !== null) sel += "[data-pid=\"" + pid.replace(/["\\]/g, "\\$&") + "\"]";
+      if(rid !== null) sel += "[data-rid=\"" + rid.replace(/["\\]/g, "\\$&") + "\"]";
+      return sel;
+    }
+    return null;
+  }
+
+  var renderScheduled = false;
+  // Deferred so the browser's native focus transfer (Tab, or a click into another field) finishes
+  // first — the rebuild itself happens on the next tick, then restores focus onto the equivalent
+  // new element, so tabbing/clicking between fields no longer gets eaten by the rebuild.
+  function renderPatients(){
+    if(renderScheduled) return;
+    renderScheduled = true;
+    setTimeout(function(){
+      renderScheduled = false;
+      renderPatientsImmediate();
+    }, 0);
+  }
+  function renderPatientsImmediate(){
+    var wrap = document.getElementById("rounds-list");
+    var active = document.activeElement;
+    var focusSelector = (active && wrap.contains(active)) ? fieldIdentitySelector(active) : null;
+    var selStart = null, selEnd = null;
+    if(focusSelector && typeof active.selectionStart === "number"){
+      selStart = active.selectionStart;
+      selEnd = active.selectionEnd;
+    }
+    // Preserve any not-yet-committed typing in the focused field: a collateral rebuild can be
+    // triggered by an EARLIER field's blur before this field's own blur/change has saved to state.
+    var focusValue = null;
+    if(focusSelector && typeof active.value === "string"){
+      focusValue = active.value;
+    }
+
+    wrap.innerHTML = "";
+    if(state.patients.length === 0){
+      wrap.innerHTML = '<div class="panel"><div class="empty">No patients yet. Add one above to start tracking rounds and follow-up.</div></div>';
+      return;
+    }
+    var groups = groupedPatients();
+
+    UNIT_ORDER.forEach(function(unitKey){
+      var list = groups[unitKey];
+      if(!list.length) return;
+      var header = document.createElement("div");
+      header.className = "unit-group-title";
+      header.innerHTML = '<span class="unit-badge ' + unitKey + '">' + UNIT_LABELS[unitKey] + '</span>' +
+        '<span class="count">' + list.length + ' patient' + (list.length===1?"":"s") + '</span>';
+      wrap.appendChild(header);
+      list.forEach(function(p){ wrap.appendChild(buildPatientCardEl(p)); });
+    });
+
+    wirePatientListEvents(wrap);
+
+    if(focusSelector){
+      var newEl = wrap.querySelector(focusSelector);
+      if(newEl){
+        if(focusValue !== null && typeof newEl.value === "string") newEl.value = focusValue;
+        newEl.focus();
+        if(selStart !== null && typeof newEl.setSelectionRange === "function"){
+          try{ newEl.setSelectionRange(selStart, selEnd); }catch(e){}
+        }
+      }
+    }
+  }
+
+  function buildPatientCardEl(p){
+    var tBadge = taskBadge(p);
+    var rBadge = roundsBadge(p);
+
+    var openTasks = p.tasks.filter(function(t){ return !t.done; })
+      .sort(function(a,b){ return (a.due||"9999").localeCompare(b.due||"9999"); });
+    var doneTasks = p.tasks.filter(function(t){ return t.done; });
+    var orderedTasks = openTasks.concat(doneTasks);
+
+    var card = document.createElement("div");
+    card.className = "patient-card";
+    card.innerHTML =
+      '<div class="patient-head" data-pid="' + p.id + '">' +
+        '<div>' +
+          '<span class="patient-name">' + escapeHtml(p.name) + '</span>' +
+          (p.room ? '<span class="patient-meta"> Room ' + escapeHtml(p.room) + '</span>' : '') +
+          (p.age ? '<span class="patient-meta"> · Age ' + escapeHtml(p.age) + '</span>' : '') +
+          (p.dx ? '<span class="patient-meta"> · ' + escapeHtml(p.dx) + '</span>' : '') +
+          (p.ef ? '<span class="patient-meta"> · EF ' + escapeHtml(p.ef) + '%</span>' : '') +
+        '</div>' +
+        '<div class="patient-badges">' +
+          '<span class="badge ' + rBadge.cls + '">' + rBadge.label + '</span>' +
+          '<span class="badge ' + tBadge.cls + '">' + tBadge.label + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="task-list" id="tasks-' + p.id + '">' +
+        '<div class="rounds-head-row">' +
+          '<div class="rounds-field"><label>Room</label><input type="text" value="' + escapeHtml(p.room) + '" data-field="room" data-pid="' + p.id + '" style="width:80px;"></div>' +
+          '<div class="rounds-field"><label>Age</label><input type="number" value="' + escapeHtml(p.age) + '" data-field="age" data-pid="' + p.id + '" style="width:65px;"></div>' +
+          '<div class="rounds-field"><label>Diagnosis</label><input type="text" value="' + escapeHtml(p.dx) + '" data-field="dx" data-pid="' + p.id + '" style="width:200px;"></div>' +
+          '<div class="rounds-field"><label>EF %</label><input type="number" value="' + escapeHtml(p.ef) + '" data-field="ef" data-pid="' + p.id + '" style="width:70px;"></div>' +
+          '<div class="rounds-field"><label>Unit</label><select data-field="unit" data-pid="' + p.id + '">' +
+            UNIT_ORDER.map(function(u){ return '<option value="' + u + '"' + (p.unit === u ? " selected" : "") + '>' + UNIT_LABELS[u] + '</option>'; }).join("") +
+          '</select></div>' +
+          '<div class="rounds-field"><label>A1C</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:65px;"></div>' +
+        '</div>' +
+        buildWorkupSectionHtml(p) +
+        buildBarriersSectionHtml(p) +
+        '<div class="rounds-section"><div class="rounds-section-title">Follow-Up / To Do</div>' +
+          (orderedTasks.length ? orderedTasks.map(function(t){ return taskRowHtml(p.id, t); }).join("") : '<div class="empty" style="padding:10px 0;">No follow-up tasks yet.</div>') +
+          '<div class="add-task-row">' +
+            '<input type="text" placeholder="New reminder / follow-up task" id="nt-text-' + p.id + '">' +
+            '<input type="date" id="nt-date-' + p.id + '">' +
+            '<select id="nt-pri-' + p.id + '"><option value="routine">Routine</option><option value="urgent">Urgent</option></select>' +
+            '<button class="btn small" data-add-task="' + p.id + '">+ Add</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="rounds-footer-row">' +
+          '<button class="btn small secondary" data-daily-note-copy="' + p.id + '">Copy Daily Note</button>' +
+          '<button class="btn small secondary" data-add-followups="' + p.id + '">Add Follow-Ups for Unchecked</button>' +
+          '<button class="btn small secondary" data-export-pdf="' + p.id + '">Export PDF</button>' +
+          '<button class="btn small danger" data-del-patient="' + p.id + '">Remove (Discharged)</button>' +
+        '</div>' +
+      '</div>';
+    return card;
+  }
+
+  function wirePatientListEvents(wrap){
+    wrap.querySelectorAll(".patient-head[data-pid]").forEach(function(head){
+      head.addEventListener("click", function(){
+        var pid = head.dataset.pid;
+        openPatients[pid] = !openPatients[pid];
+        document.getElementById("tasks-" + pid).classList.toggle("open", openPatients[pid]);
+      });
+    });
+    wrap.querySelectorAll("[data-field]").forEach(function(el){
+      el.addEventListener("click", function(e){ e.stopPropagation(); });
+      el.addEventListener("change", function(){
+        openPatients[el.dataset.pid] = true;
+        if(el.dataset.field.indexOf("workup") === 0) openWorkupSections[el.dataset.pid] = true;
+        updatePatientField(el.dataset.pid, el.dataset.field, el.value);
+        renderPatients();
+      });
+    });
+    wrap.querySelectorAll("[data-workup-toggle]").forEach(function(el){
+      el.addEventListener("click", function(e){
+        e.stopPropagation();
+        var pid = el.dataset.workupToggle;
+        openPatients[pid] = true;
+        openWorkupSections[pid] = !openWorkupSections[pid];
+        document.getElementById("workup-body-" + pid).classList.toggle("open", openWorkupSections[pid]);
+        el.querySelector("span:last-child").textContent = openWorkupSections[pid] ? "▾" : "▸";
+      });
+    });
+    wrap.querySelectorAll("[data-workup-note]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); exportWorkupNote(btn.dataset.workupNote); });
+    });
+    wrap.querySelectorAll("[data-workup-note-copy]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); copyWorkupNote(btn.dataset.workupNoteCopy, btn); });
+    });
+    wrap.querySelectorAll("[data-daily-note-copy]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); copyDailyNote(btn.dataset.dailyNoteCopy, btn); });
+    });
+    wrap.querySelectorAll(".rounds-item input[type=checkbox]:not([data-infusions-toggle])").forEach(function(cb){
+      cb.addEventListener("click", function(e){ e.stopPropagation(); });
+      cb.addEventListener("change", function(){
+        openPatients[cb.dataset.pid] = true;
+        if(CORE_ITEM_IDS.indexOf(cb.dataset.item) !== -1) toggleCoreCheck(cb.dataset.pid, cb.dataset.item);
+        else toggleRoundsCheck(cb.dataset.pid, cb.dataset.item);
+      });
+    });
+    wrap.querySelectorAll("[data-infusions-toggle]").forEach(function(cb){
+      cb.addEventListener("click", function(e){ e.stopPropagation(); });
+      cb.addEventListener("change", function(){
+        openPatients[cb.dataset.infusionsToggle] = true;
+        toggleInfusionsActive(cb.dataset.infusionsToggle);
+      });
+    });
+    wrap.querySelectorAll(".prev-hint").forEach(function(span){
+      span.addEventListener("click", function(e){
+        e.stopPropagation();
+        var parts = span.dataset.carryItem.split("|");
+        openPatients[parts[0]] = true;
+        toggleRoundsCheck(parts[0], parts[1]);
+      });
+    });
+    wrap.querySelectorAll("[data-item-note]").forEach(function(inp){
+      inp.addEventListener("click", function(e){ e.stopPropagation(); });
+      inp.addEventListener("change", function(){
+        var parts = inp.dataset.itemNote.split("|");
+        openPatients[parts[0]] = true;
+        updateItemNote(parts[0], parts[1], inp.value.trim());
+        renderPatients();
+      });
+    });
+    wrap.querySelectorAll("[data-ivpo-field]").forEach(function(el){
+      el.addEventListener("click", function(e){ e.stopPropagation(); });
+      el.addEventListener("change", function(){
+        openPatients[el.dataset.pid] = true;
+        updateIvPoRow(el.dataset.pid, el.dataset.rid, el.dataset.ivpoField, el.value);
+        renderPatients();
+      });
+    });
+    wrap.querySelectorAll("[data-ivpo-add]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); addIvPoRow(btn.dataset.ivpoAdd); });
+    });
+    wrap.querySelectorAll("[data-ivpo-remove]").forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var parts = btn.dataset.ivpoRemove.split("|");
+        removeIvPoRow(parts[0], parts[1]);
+      });
+    });
+    wrap.querySelectorAll("[data-abx-field]").forEach(function(el){
+      el.addEventListener("click", function(e){ e.stopPropagation(); });
+      el.addEventListener("change", function(){
+        openPatients[el.dataset.pid] = true;
+        updateAbxRow(el.dataset.pid, el.dataset.rid, el.dataset.abxField, el.value);
+        renderPatients();
+      });
+    });
+    wrap.querySelectorAll("[data-abx-add]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); addAbxRow(btn.dataset.abxAdd); });
+    });
+    wrap.querySelectorAll("[data-abx-remove]").forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var parts = btn.dataset.abxRemove.split("|");
+        removeAbxRow(parts[0], parts[1]);
+      });
+    });
+    wrap.querySelectorAll("[data-cx-field]").forEach(function(el){
+      el.addEventListener("click", function(e){ e.stopPropagation(); });
+      el.addEventListener("change", function(){
+        openPatients[el.dataset.pid] = true;
+        updateCultureRow(el.dataset.pid, el.dataset.rid, el.dataset.cxField, el.value);
+        renderPatients();
+      });
+    });
+    wrap.querySelectorAll("[data-cx-add]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); addCultureRow(btn.dataset.cxAdd); });
+    });
+    wrap.querySelectorAll("[data-cx-remove]").forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var parts = btn.dataset.cxRemove.split("|");
+        removeCultureRow(parts[0], parts[1]);
+      });
+    });
+    wrap.querySelectorAll("[data-add-task]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); addTask(btn.dataset.addTask); });
+    });
+    wrap.querySelectorAll("[data-add-followups]").forEach(function(btn){
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        openPatients[btn.dataset.addFollowups] = true;
+        addFollowUpsForUnchecked(btn.dataset.addFollowups);
+      });
+    });
+    wrap.querySelectorAll(".task-check").forEach(function(cb){
+      cb.addEventListener("click", function(e){ e.stopPropagation(); toggleTask(cb.dataset.pid, cb.dataset.tid); });
+    });
+    wrap.querySelectorAll(".del-task").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); deleteTask(btn.dataset.pid, btn.dataset.tid); });
+    });
+    wrap.querySelectorAll("[data-export-pdf]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); exportPatientPDF(btn.dataset.exportPdf); });
+    });
+    wrap.querySelectorAll("[data-tdm-note]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); exportTdmConsultNote(btn.dataset.tdmNote); });
+    });
+    wrap.querySelectorAll("[data-del-patient]").forEach(function(btn){
+      btn.addEventListener("click", function(e){ e.stopPropagation(); deletePatient(btn.dataset.delPatient); });
+    });
+    Object.keys(openPatients).forEach(function(pid){
+      if(openPatients[pid]){
+        var el = document.getElementById("tasks-" + pid);
+        if(el) el.classList.add("open");
+      }
+    });
+  }
+
+  // ================= PDF EXPORT (print-optimized view) =================
+  var ORIGINAL_TITLE = document.title;
+
+  function genTimestamp(){
+    var now = new Date();
+    return now.toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" }) +
+      " at " + now.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
+  }
+
+  // Currently-checked IV Critical Care Medications with their entered dose, for pulling into print/export.
+  function activeIvMeds(p){
+    var todayChecks = getTodayChecks(p);
+    var active = [];
+    ALL_IV_MEDS_ITEMS.forEach(function(item){
+      if(todayChecks[item.id]){
+        var dose = p.itemNotes[item.id];
+        active.push(item.t + (dose ? " — " + dose + " " + item.unit : ""));
+      }
+    });
+    return active;
+  }
+
+  // Currently-checked HFrEF/HFpEF/AF/ACS guideline items, grouped by condition, for pulling into
+  // print/export. Shows what was typed into each item's note box (the actual drug/dose chosen)
+  // rather than the drug class prompt, falling back to the class only if nothing was entered.
+  function activeCvChecksByGroup(p){
+    var todayChecks = getTodayChecks(p);
+    return CV_CHECK_GROUPS.map(function(g){
+      var entries = g.items.filter(function(item){ return !!todayChecks[item.id]; })
+        .map(function(item){ return p.itemNotes[item.id] || item.t; });
+      return { shortLabel: g.shortLabel, entries: entries };
+    }).filter(function(g){ return g.entries.length; });
+  }
+
+  // Pulls every entered Initial Workup field into a single "Monitoring" summary — used by both
+  // the Patient Summary PDF and the compact Daily Rounds table so nothing typed in Workup needs
+  // re-entering to show up in the daily print. Long narrative fields (Presenting Complaint, PMH,
+  // Home Meds) stay out of this quick summary and only appear in the full Workup Note.
+  // Same head-to-toe order as the Initial Workup form: Infusions, Neuro, CV, Resp, GI, GU,
+  // ID (Abx, Cultures, TDM, WBC/Temp — matching the ID section's internal order), Glycemic, Heme.
+  // opts.compact switches sub-field "Label: value" pairs to "Label value" (no colon) and the
+  // " · "/"; " join separators to ", " — matching the Workup Note's streamlined output style.
+  // Only the Daily Note opts in; the compact Daily Rounds report and Patient Summary PDF keep the
+  // original punctuation, since they were never part of that streamlining.
+  function monitoringLines(p, opts){
+    opts = opts || {};
+    var sep = opts.compact ? ", " : " · ";
+    var colon = opts.compact ? " " : ": ";
+    var lines = [];
+
+    var ivMedsBits = activeIvMeds(p);
+    if(ivMedsBits.length) lines.push({ label: "Infusions", value: ivMedsBits.join(", ") });
+
+    var neuroBits = WORKUP_NEURO_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
+      if(opts.compact && f.label === "General") return p[f.field];
+      return f.label + colon + p[f.field];
+    });
+    if(neuroBits.length) lines.push({ label: "Neuro", value: neuroBits.join(sep) });
+
+    var cvBits = WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
+      if(opts.compact && (f.label === "Rhythm" || f.label === "General")) return p[f.field];
+      return f.label + colon + p[f.field];
+    });
+    if(cvBits.length) lines.push({ label: "CV", value: cvBits.join(sep) });
+    activeCvChecksByGroup(p).forEach(function(g){
+      lines.push({ label: g.shortLabel, value: g.entries.join(sep) });
+    });
+
+    var respBits = [];
+    if(p.workupRespGeneral) respBits.push(p.workupRespGeneral);
+    if(p.respMode && !opts.omitRespMode) respBits.push(p.respMode);
+    if(p.respFio2) respBits.push("FiO2 " + p.respFio2 + "%");
+    if(p.respFlowRate) respBits.push("Flow " + p.respFlowRate);
+    if(p.respSettings) respBits.push("Support" + colon + p.respSettings);
+    if(p.respPeep) respBits.push("PEEP " + p.respPeep);
+    if(p.workupRespCxr) respBits.push("CXR" + colon + p.workupRespCxr);
+    if(p.workupRespChestCt) respBits.push("Chest CT" + colon + p.workupRespChestCt);
+    if(p.workupRespChestTube) respBits.push("Chest tube" + colon + p.workupRespChestTube);
+    if(respBits.length) lines.push({ label: "Resp", value: respBits.join(sep) });
+
+    var giBits = WORKUP_GI_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGiGeneral"); }).map(function(f){ return f.label + colon + p[f.field]; });
+    if(giBits.length) lines.push({ label: "GI", value: giBits.join(sep) });
+
+    var guBits = WORKUP_GU_FIELDS.filter(function(f){ return p[f.field] && !(opts.omitGeneral && f.field === "workupGuGeneral"); }).map(function(f){ return f.label + colon + p[f.field]; });
+    if(guBits.length) lines.push({ label: "GU", value: guBits.join(sep) });
+
+    var abxBits = formattedAbxRows(p);
+    if(p.abxDuration) abxBits.push(p.abxDuration);
+    if(p.abxStopDate) abxBits.push("ASO " + formatDue(p.abxStopDate));
+    if(abxBits.length) lines.push({ label: "Abx", value: abxBits.join(sep) });
+    if(p.cultures && p.cultures.length){
+      var cxBits = p.cultures.map(function(c){
+        var bits = [c.site || "Culture", c.status || "Pending"];
+        if(c.organism) bits.push(c.organism);
+        return bits.join(" ");
+      });
+      lines.push({ label: "Cultures", value: cxBits.join(opts.compact ? ", " : "; ") });
+    }
+    var idBits = [];
+    if(p.workupIdWbc) idBits.push("WBC " + p.workupIdWbc);
+    if(p.workupIdTemp) idBits.push("Temp " + p.workupIdTemp);
+    if(p.workupIdCrp) idBits.push("CRP " + p.workupIdCrp);
+    if(p.workupIdProcalcitonin) idBits.push("Procalcitonin " + p.workupIdProcalcitonin);
+    if(p.workupIdImaging) idBits.push("Imaging" + colon + p.workupIdImaging);
+    if(idBits.length) lines.push({ label: "ID", value: idBits.join(sep) });
+
+    var glycemicBits = [];
+    if(p.workupGlycemicPocTrend) glycemicBits.push("POC " + p.workupGlycemicPocTrend);
+    if(p.a1cLevel) glycemicBits.push("A1C " + p.a1cLevel);
+    if(p.a1cChanges) glycemicBits.push("Therapy" + colon + p.a1cChanges);
+    if(p.workupGlycemicAtTarget) glycemicBits.push("At Target" + colon + p.workupGlycemicAtTarget);
+    if(glycemicBits.length) lines.push({ label: "POC", value: glycemicBits.join(sep) });
+
+    var hemeBits = WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + colon + p[f.field]; });
+    if(hemeBits.length) lines.push({ label: "Hgb", value: hemeBits.join(sep) });
+
+    if(p.tdmAgent || p.tdmLevel || p.tdmTarget || p.tdmNextTrough){
+      var tdmBits = [];
+      if(p.tdmAgent) tdmBits.push("Agent " + p.tdmAgent);
+      if(p.tdmLevel) tdmBits.push("Level " + p.tdmLevel);
+      if(p.tdmNextTrough) tdmBits.push("Date " + formatDateTime(p.tdmNextTrough));
+      if(p.tdmTarget) tdmBits.push((opts.compact ? "Target " : "target ") + p.tdmTarget);
+      lines.push({ label: "TDM", value: tdmBits.length ? tdmBits.join(sep) : "not yet specified" });
+    }
+
+    var safetyBits = [];
+    var vteNote = p.itemNotes.vte;
+    if(opts.compact){
+      safetyBits.push("VTE px:" + (vteNote ? " " + vteNote : ""));
+    } else {
+      if(p.coreChecks.vte || vteNote){
+        safetyBits.push((p.coreChecks.vte ? "✓ VTE prophylaxis" : "☐ VTE prophylaxis") + (vteNote ? " — " + vteNote : ""));
+      }
+      if(p.coreChecks.renaldose) safetyBits.push("✓ Renal dosing verified");
+    }
+    if(safetyBits.length) lines.push({ label: "Safety", value: safetyBits.join(sep) });
+
+    var otherBits = [];
+    if(p.workupOtherSmoker) otherBits.push("Smoker" + colon + p.workupOtherSmoker);
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherBits.push("NRT Ordered" + colon + p.workupOtherNrt);
+    if(p.workupOtherDrugCoverage) otherBits.push("Drug Coverage" + colon + p.workupOtherDrugCoverage);
+    if(otherBits.length) lines.push({ label: "Other", value: otherBits.join(sep) });
+
+    if(p.workupHomeMeds) lines.push({ label: "Home Meds", value: p.workupHomeMeds });
+
+    return lines;
+  }
+
+  // Formats each antibiotic row as "Drug — dose" for print, skipping rows with nothing selected.
+  function formattedAbxRows(p){
+    return p.abxRows.map(function(r){
+      var label = r.drug;
+      if(!label) return null;
+      return label + (r.dose ? " — " + r.dose : "");
+    }).filter(Boolean);
+  }
+
+  function buildPatientBlockHtml(p){
+    var openTasks = p.tasks.filter(function(t){ return !t.done; })
+      .sort(function(a,b){ return (a.due||"9999").localeCompare(b.due||"9999"); });
+    var doneTasks = p.tasks.filter(function(t){ return t.done; });
+
+    var html = '<div class="print-patient-block">';
+    html += '<div class="print-patient">';
+    html += '<div class="print-patient-name">' + escapeHtml(p.name) + ' <span class="print-dim">(' + UNIT_LABELS[p.unit] + ')</span></div>';
+    var metaBits = [];
+    if(p.room) metaBits.push("Room " + p.room);
+    if(p.age) metaBits.push("Age " + p.age);
+    if(p.dx) metaBits.push(p.dx);
+    if(p.ef) metaBits.push("EF " + p.ef + "%");
+    if(metaBits.length) html += '<div class="print-patient-room">' + escapeHtml(metaBits.join(" · ")) + '</div>';
+    html += '</div>';
+
+    var reviewItems = ROUNDS_CORE_ITEMS.slice();
+    html += '<div class="print-section"><h2>Core Review</h2><ul class="print-list">';
+    reviewItems.forEach(function(item){
+      var checked = !!p.coreChecks[item.id];
+      var note = p.itemNotes[item.id];
+      html += '<li class="' + (checked ? "print-checked" : "print-unchecked") + '">' + (checked ? "✓" : "☐") + ' ' + escapeHtml(item.t) +
+        (note ? ' <span class="print-dim">— ' + escapeHtml(note) + '</span>' : '') + '</li>';
+    });
+    html += '</ul>';
+    if(p.ivpoRows && p.ivpoRows.length){
+      var ivpoBits = p.ivpoRows.map(function(r){
+        var label = r.drugClass === "Other" ? (r.otherText || "Other") : r.drugClass;
+        if(!label) return null;
+        return escapeHtml(label) + (r.note ? " (" + escapeHtml(r.note) + ")" : "");
+      }).filter(Boolean);
+      if(ivpoBits.length) html += '<p class="print-dim" style="margin:2px 0 0 0;">IV→PO: ' + ivpoBits.join("; ") + '</p>';
+    }
+    html += '</div>';
+
+    var monLines = monitoringLines(p);
+    if(monLines.length){
+      html += '<div class="print-section"><h2>Monitoring</h2>' +
+        monLines.map(function(l){ return '<p class="print-dim" style="margin:2px 0;">' + escapeHtml(l.label) + ': ' + escapeHtml(l.value) + '</p>'; }).join("") +
+      '</div>';
+    }
+
+    html += '<div class="print-section"><h2>Open Follow-Up Tasks (' + openTasks.length + ')</h2>';
+    if(openTasks.length){
+      html += '<table class="print-table"><thead><tr><th>Task</th><th>Due</th><th>Priority</th><th>Status</th></tr></thead><tbody>';
+      openTasks.forEach(function(t){
+        var status = dueStatus(t.due);
+        var statusLabel = status === "overdue" ? "Overdue" : (status === "today" ? "Due Today" : (status === "ok" ? "Upcoming" : "—"));
+        html += '<tr>' +
+          '<td>' + escapeHtml(taskDisplayText(t)) + '</td>' +
+          '<td>' + formatDue(t.due) + '</td>' +
+          '<td>' + (t.priority === "urgent" ? "Urgent" : "Routine") + '</td>' +
+          '<td class="print-status-' + status + '">' + statusLabel + '</td>' +
+        '</tr>';
+      });
+      html += '</tbody></table>';
+    } else {
+      html += '<p class="print-empty">No open follow-up tasks.</p>';
+    }
+    html += '</div>';
+
+    html += '<div class="print-section"><h2>Completed Tasks (' + doneTasks.length + ')</h2>';
+    if(doneTasks.length){
+      html += '<ul class="print-list">';
+      doneTasks.forEach(function(t){
+        html += '<li>✓ ' + escapeHtml(taskDisplayText(t)) + (t.due ? ' <span class="print-dim">(was due ' + formatDue(t.due) + ')</span>' : '') + '</li>';
+      });
+      html += '</ul>';
+    } else {
+      html += '<p class="print-empty">No completed tasks.</p>';
+    }
+    html += '</div>';
+
+    html += '</div>'; // .print-patient-block
+    return html;
+  }
+
+  function exportPatientPDF(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+
+    var html = '<div class="print-header">' +
+      '<h1>Patient Summary</h1>' +
+      '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
+    '</div>';
+    html += buildPatientBlockHtml(p);
+    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
+
+    document.getElementById("print-area").innerHTML = html;
+    document.title = "Patient Summary - " + p.name;
+    window.print();
+  }
+
+  // Formats the Initial Workup fields into a printable admission note. Sections with nothing
+  // entered are omitted. Follow-Up Items are pulled live from the patient's existing
+  // Follow-Up/To-Do task list rather than a separate field, so it never goes out of sync.
+  function buildWorkupNoteHtml(p){
+    var html = '<div class="workup-note-print">';
+
+    var today = getTodayChecks(p);
+
+    function textSection(title, text){
+      if(!text) return "";
+      return '<div class="print-section"><h2>' + escapeHtml(title + ":") + '</h2><p style="white-space:pre-wrap; margin:0;">' + escapeHtml(text) + '</p></div>';
+    }
+    // One compact line per section (fields joined by ", "), matching the Monitoring row style
+    // used in the Daily Rounds report, rather than a separate line for every single field.
+    function bulletSection(title, lines){
+      if(!lines.length) return "";
+      return '<div class="print-section"><h2>' + escapeHtml(title + ":") + '</h2><p style="margin:0;">' + escapeHtml(lines.join(", ")) + '</p></div>';
+    }
+    // Same as bulletSection but without the category heading (POC/Safety/Other read fine as a
+    // bare line without a label repeating what the content already says).
+    function bulletSectionNoTitle(lines){
+      if(!lines.length) return "";
+      return '<div class="print-section"><p style="margin:0;">' + escapeHtml(lines.join(", ")) + '</p></div>';
+    }
+    function checkedItemLines(items){
+      return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
+        var note = p.itemNotes[item.id];
+        if(item.unit) return item.t + (note ? " " + note + " " + item.unit : "");
+        return item.t + (note ? " " + note : "");
+      });
+    }
+    // For the CV condition-query groups (HFrEF/HFpEF/AF/ACS): the drug class name (item.t) is
+    // just a prompt — what actually matters is what was typed into the note box, so show that
+    // instead of the class, falling back to the class only if nothing was entered.
+    function checkedItemEntries(items){
+      return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
+        return p.itemNotes[item.id] || item.t;
+      });
+    }
+
+    var idBits = [];
+    if(p.room) idBits.push("Room " + p.room);
+    if(p.age) idBits.push("Age " + p.age);
+    if(p.dx) idBits.push(p.dx);
+    html += bulletSectionNoTitle(idBits);
+
+    html += bulletSection("Hx", p.workupPmh ? [p.workupPmh] : []);
+
+    var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
+    if(p.workupInfusionsOther) infusionLines.push("Other " + p.workupInfusionsOther);
+    html += bulletSection("Infusions", infusionLines);
+
+    var neuroLines = [];
+    if(p.workupNeuroGeneral) neuroLines.push(p.workupNeuroGeneral);
+    neuroLines = neuroLines.concat(WORKUP_NEURO_FIELDS.filter(function(f){ return f.field !== "workupNeuroGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+    html += bulletSection("Neuro", neuroLines);
+
+    html += bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
+      if(f.label === "Rhythm" || f.label === "General") return p[f.field];
+      return f.label + " " + p[f.field];
+    }));
+    CV_CHECK_GROUPS.forEach(function(g){
+      html += bulletSection(g.shortLabel, checkedItemEntries(g.items));
+    });
+
+    var respLines = [];
+    if(p.respMode) respLines.push(p.respMode);
+    if(p.respFio2) respLines.push("FiO2 " + p.respFio2 + "%");
+    if(p.respSettings) respLines.push("Support " + p.respSettings);
+    if(p.respPeep) respLines.push("PEEP " + p.respPeep);
+    if(p.workupRespCxr) respLines.push("CXR " + p.workupRespCxr);
+    if(p.workupRespChestCt) respLines.push("Chest CT " + p.workupRespChestCt);
+    if(p.workupRespChestTube) respLines.push("Chest Tube " + p.workupRespChestTube);
+    html += bulletSection("Resp", respLines);
+
+    html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+
+    html += bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+
+    var idLines = formattedAbxRows(p);
+    if(p.abxDuration) idLines.push("Duration " + p.abxDuration);
+    if(p.abxStopDate) idLines.push("ASO/Stop date " + formatDue(p.abxStopDate));
+    if(today["abx-appropriate"]){
+      var aspNote = p.itemNotes["abx-appropriate"];
+      idLines.push("ASP rqd" + (aspNote ? " — " + aspNote : ""));
+    }
+    if(p.cultures && p.cultures.length){
+      p.cultures.forEach(function(c){
+        var bits = [];
+        if(c.site) bits.push(c.site);
+        bits.push(c.status || "Pending");
+        if(c.organism) bits.push(c.organism);
+        if(c.sens) bits.push("Sens " + c.sens);
+        idLines.push("Culture — " + bits.join(", "));
+      });
+    }
+    if(p.workupIdWbc) idLines.push("WBC " + p.workupIdWbc);
+    if(p.workupIdTemp) idLines.push("Temp " + p.workupIdTemp);
+    if(p.workupIdCrp) idLines.push("CRP " + p.workupIdCrp);
+    if(p.workupIdProcalcitonin) idLines.push("Procalcitonin " + p.workupIdProcalcitonin);
+    if(p.workupIdImaging) idLines.push("Imaging " + p.workupIdImaging);
+    html += bulletSection("ID", idLines);
+
+    var glycemicLines = [];
+    if(p.workupGlycemicPocTrend) glycemicLines.push("POC " + p.workupGlycemicPocTrend);
+    if(p.a1cLevel) glycemicLines.push("A1C " + p.a1cLevel);
+    if(p.a1cChanges) glycemicLines.push("Therapy " + p.a1cChanges);
+    if(p.workupGlycemicAtTarget) glycemicLines.push("At Target " + p.workupGlycemicAtTarget);
+    html += bulletSectionNoTitle(glycemicLines);
+
+    html += bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+
+    var tdmLines = [];
+    if(p.tdmAgent) tdmLines.push("Agent " + p.tdmAgent);
+    if(p.tdmLevel) tdmLines.push("Level " + p.tdmLevel);
+    if(p.tdmNextTrough) tdmLines.push("Date " + formatDateTime(p.tdmNextTrough));
+    if(p.tdmTarget) tdmLines.push("Target " + p.tdmTarget);
+    if(p.tdmFrequency) tdmLines.push("Frequency " + p.tdmFrequency);
+    html += bulletSection("TDM", tdmLines);
+
+    var safetyLines = [p.itemNotes.vte || "VTE px"];
+    html += bulletSectionNoTitle(safetyLines);
+
+    var otherLines = [];
+    if(p.workupOtherSmoker) otherLines.push("Smoker " + p.workupOtherSmoker);
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered " + p.workupOtherNrt);
+    if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage " + p.workupOtherDrugCoverage);
+    html += bulletSectionNoTitle(otherLines);
+
+    html += textSection("Home Meds", p.workupHomeMeds);
+
+    var openTasks = p.tasks.filter(function(t){ return !t.done; });
+    html += '<div class="print-section"><h2>To Do:</h2>';
+    if(openTasks.length){
+      html += '<ul class="print-list">' + openTasks.map(function(t){
+        return '<li>' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(due ' + formatDue(t.due) + ')</span>' : '') + (t.priority === "urgent" ? ' <span class="print-dim">[Urgent]</span>' : '') + '</li>';
+      }).join("") + '</ul>';
+    } else {
+      html += '<p class="print-empty">No open follow-up items.</p>';
+    }
+    html += '</div>';
+
+    html += '</div>';
+    return html;
+  }
+
+  function exportWorkupNote(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    document.getElementById("print-area").innerHTML = buildWorkupNoteHtml(p);
+    document.title = "Initial Workup - " + p.name;
+    window.print();
+  }
+
+  // Plain-text mirror of buildWorkupNoteHtml — same section content/order, formatted for pasting
+  // directly into an EMR or documentation system rather than printing.
+  function buildWorkupNoteText(p){
+    var out = [];
+
+    var today = getTodayChecks(p);
+
+    function textSection(title, text){
+      if(!text) return;
+      out.push(title + ":");
+      out.push(text);
+    }
+    // One compact line per section (fields joined by ", "), matching the Monitoring row style
+    // used in the Daily Rounds report, rather than a separate line for every single field.
+    function bulletSection(title, lines){
+      if(!lines.length) return;
+      out.push(title + ": " + lines.join(", "));
+    }
+    // Same as bulletSection but without the category heading (POC/Safety/Other read fine as a
+    // bare line without a label repeating what the content already says).
+    function bulletSectionNoTitle(lines){
+      if(!lines.length) return;
+      out.push(lines.join(", "));
+    }
+    function checkedItemLines(items){
+      return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
+        var note = p.itemNotes[item.id];
+        if(item.unit) return item.t + (note ? " " + note + " " + item.unit : "");
+        return item.t + (note ? " " + note : "");
+      });
+    }
+    // For the CV condition-query groups (HFrEF/HFpEF/AF/ACS): the drug class name (item.t) is
+    // just a prompt — what actually matters is what was typed into the note box, so show that
+    // instead of the class, falling back to the class only if nothing was entered.
+    function checkedItemEntries(items){
+      return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
+        return p.itemNotes[item.id] || item.t;
+      });
+    }
+
+    var idBits = [];
+    if(p.room) idBits.push("Room " + p.room);
+    if(p.age) idBits.push("Age " + p.age);
+    if(p.dx) idBits.push(p.dx);
+    bulletSectionNoTitle(idBits);
+
+    bulletSection("Hx", p.workupPmh ? [p.workupPmh] : []);
+
+    var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
+    if(p.workupInfusionsOther) infusionLines.push("Other " + p.workupInfusionsOther);
+    bulletSection("Infusions", infusionLines);
+
+    var neuroLines = [];
+    if(p.workupNeuroGeneral) neuroLines.push(p.workupNeuroGeneral);
+    neuroLines = neuroLines.concat(WORKUP_NEURO_FIELDS.filter(function(f){ return f.field !== "workupNeuroGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+    bulletSection("Neuro", neuroLines);
+
+    bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
+      if(f.label === "Rhythm" || f.label === "General") return p[f.field];
+      return f.label + " " + p[f.field];
+    }));
+    CV_CHECK_GROUPS.forEach(function(g){
+      bulletSection(g.shortLabel, checkedItemEntries(g.items));
+    });
+
+    var respLines = [];
+    if(p.respMode) respLines.push(p.respMode);
+    if(p.respFio2) respLines.push("FiO2 " + p.respFio2 + "%");
+    if(p.respSettings) respLines.push("Support " + p.respSettings);
+    if(p.respPeep) respLines.push("PEEP " + p.respPeep);
+    if(p.workupRespCxr) respLines.push("CXR " + p.workupRespCxr);
+    if(p.workupRespChestCt) respLines.push("Chest CT " + p.workupRespChestCt);
+    if(p.workupRespChestTube) respLines.push("Chest Tube " + p.workupRespChestTube);
+    bulletSection("Resp", respLines);
+
+    bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+
+    bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+
+    var idLines = formattedAbxRows(p);
+    if(p.abxDuration) idLines.push("Duration " + p.abxDuration);
+    if(p.abxStopDate) idLines.push("ASO/Stop date " + formatDue(p.abxStopDate));
+    if(today["abx-appropriate"]){
+      var aspNote = p.itemNotes["abx-appropriate"];
+      idLines.push("ASP rqd" + (aspNote ? " — " + aspNote : ""));
+    }
+    if(p.cultures && p.cultures.length){
+      p.cultures.forEach(function(c){
+        var bits = [];
+        if(c.site) bits.push(c.site);
+        bits.push(c.status || "Pending");
+        if(c.organism) bits.push(c.organism);
+        if(c.sens) bits.push("Sens " + c.sens);
+        idLines.push("Culture — " + bits.join(", "));
+      });
+    }
+    if(p.workupIdWbc) idLines.push("WBC " + p.workupIdWbc);
+    if(p.workupIdTemp) idLines.push("Temp " + p.workupIdTemp);
+    if(p.workupIdCrp) idLines.push("CRP " + p.workupIdCrp);
+    if(p.workupIdProcalcitonin) idLines.push("Procalcitonin " + p.workupIdProcalcitonin);
+    if(p.workupIdImaging) idLines.push("Imaging " + p.workupIdImaging);
+    bulletSection("ID", idLines);
+
+    var glycemicLines = [];
+    if(p.workupGlycemicPocTrend) glycemicLines.push("POC " + p.workupGlycemicPocTrend);
+    if(p.a1cLevel) glycemicLines.push("A1C " + p.a1cLevel);
+    if(p.a1cChanges) glycemicLines.push("Therapy " + p.a1cChanges);
+    if(p.workupGlycemicAtTarget) glycemicLines.push("At Target " + p.workupGlycemicAtTarget);
+    bulletSectionNoTitle(glycemicLines);
+
+    bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
+
+    var tdmLines = [];
+    if(p.tdmAgent) tdmLines.push("Agent " + p.tdmAgent);
+    if(p.tdmLevel) tdmLines.push("Level " + p.tdmLevel);
+    if(p.tdmNextTrough) tdmLines.push("Date " + formatDateTime(p.tdmNextTrough));
+    if(p.tdmTarget) tdmLines.push("Target " + p.tdmTarget);
+    if(p.tdmFrequency) tdmLines.push("Frequency " + p.tdmFrequency);
+    bulletSection("TDM", tdmLines);
+
+    var safetyLines = ["VTE px:" + (p.itemNotes.vte ? " " + p.itemNotes.vte : "")];
+    bulletSectionNoTitle(safetyLines);
+
+    var otherLines = [];
+    if(p.workupOtherSmoker) otherLines.push("Smoker " + p.workupOtherSmoker);
+    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered " + p.workupOtherNrt);
+    if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage " + p.workupOtherDrugCoverage);
+    bulletSectionNoTitle(otherLines);
+
+    textSection("Home Meds", p.workupHomeMeds);
+
+    out.push("To Do:");
+    var openTasks = p.tasks.filter(function(t){ return !t.done; });
+    if(openTasks.length){
+      out.push(openTasks.map(function(t){
+        return t.text + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : "");
+      }).join(", "));
+    } else {
+      out.push("No open follow-up items.");
+    }
+
+    return out.join("\n");
+  }
+
+  // Daily progress note — built from today's Core Review + Monitoring data (what's currently
+  // checked/entered) rather than the one-time admission Workup, for day-to-day charting.
+  function buildDailyNoteText(p){
+    var out = [];
+
+    var coreLines = ROUNDS_CORE_ITEMS.filter(function(item){
+      return item.id !== "medrec" && item.id !== "renaldose";
+    }).map(function(item){
+      if(item.id === "vte") return "VTE px:" + (p.itemNotes.vte ? " " + p.itemNotes.vte : "");
+      var checked = !!p.coreChecks[item.id];
+      var note = p.itemNotes[item.id];
+      return (checked ? "✓ " : "☐ ") + item.t + (note ? " — " + note : "");
+    });
+    out.push("Core Review: " + coreLines.join(", "));
+
+    if(p.ivpoRows && p.ivpoRows.length){
+      var ivpoBits = p.ivpoRows.map(function(r){
+        var label = r.drugClass === "Other" ? (r.otherText || "Other") : r.drugClass;
+        if(!label) return null;
+        return label + (r.note ? " (" + r.note + ")" : "");
+      }).filter(Boolean);
+      if(ivpoBits.length) out.push("IV → PO Conversion: " + ivpoBits.join(", "));
+    }
+
+    var monLines = monitoringLines(p, { omitRespMode: true, omitGeneral: true, compact: true });
+    if(monLines.length){
+      out.push("Monitoring:");
+      var noTitleLabels = ["POC", "Safety", "Other"];
+      monLines.forEach(function(l){ out.push(noTitleLabels.indexOf(l.label) !== -1 ? l.value : (l.label + ": " + l.value)); });
+    }
+
+    out.push("To Do:");
+    var openTasks = p.tasks.filter(function(t){ return !t.done; });
+    if(openTasks.length){
+      out.push(openTasks.map(function(t){
+        return taskDisplayText(t) + (t.due ? " (due " + formatDue(t.due) + ")" : "") + (t.priority === "urgent" ? " [Urgent]" : "");
+      }).join(", "));
+    } else {
+      out.push("No open follow-up items.");
+    }
+
+    return out.join("\n");
+  }
+
+  // Copies text via a hidden textarea + execCommand rather than the Clipboard API, since this file
+  // is often opened directly (file://) or from a plain static host without a guaranteed secure
+  // context for navigator.clipboard.
+  function copyTextToClipboard(text){
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.top = "-1000px";
+    ta.style.left = "-1000px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    var ok = false;
+    try{ ok = document.execCommand("copy"); }catch(e){ ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function flashButton(btn, msg){
+    if(!btn) return;
+    var original = btn.textContent;
+    btn.textContent = msg;
+    btn.disabled = true;
+    setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 1500);
+  }
+  function copyWorkupNote(pid, btn){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var ok = copyTextToClipboard(buildWorkupNoteText(p));
+    flashButton(btn, ok ? "Copied!" : "Copy failed");
+  }
+  function copyDailyNote(pid, btn){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+    var ok = copyTextToClipboard(buildDailyNoteText(p));
+    flashButton(btn, ok ? "Copied!" : "Copy failed");
+  }
+
+  // Pre-fills the TDM table from the CCU Care Plan & TDM Documentation Template using data
+  // already captured in Daily Rounds. Result/Date and Follow-Up Action are left blank —
+  // those require an actual drawn level and a clinical decision, not something to auto-fill.
+  function exportTdmConsultNote(pid){
+    var p = state.patients.find(function(p){ return p.id === pid; });
+    if(!p) return;
+
+    var todayLong = new Date().toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" });
+
+    var html = '<div class="print-header">' +
+      '<h1>TDM Documentation Note</h1>' +
+      '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
+    '</div>';
+
+    html += '<table class="print-table" style="margin-bottom:18px;"><tbody>' +
+      '<tr><td style="width:50%;"><strong>Patient Name / MRN:</strong> ' + escapeHtml(p.name) + (p.room ? ' (Room ' + escapeHtml(p.room) + ')' : '') + '</td>' +
+        '<td><strong>Date:</strong> ' + todayLong + '</td></tr>' +
+      '<tr><td><strong>Admitting Diagnosis:</strong> ' + (p.dx ? escapeHtml(p.dx) : '&nbsp;') + '</td>' +
+        '<td><strong>Pharmacist:</strong> &nbsp;</td></tr>' +
+    '</tbody></table>';
+
+    html += '<div class="print-section"><h2>Therapeutic Drug Monitoring (TDM) Documentation</h2>';
+    html += '<table class="print-table"><thead><tr>' +
+      '<th>Drug</th><th>Target Parameter(s)</th><th>Monitoring Frequency</th><th>Result / Date</th><th>Follow-Up Action Taken</th>' +
+    '</tr></thead><tbody><tr>' +
+      '<td>' + (p.tdmAgent ? escapeHtml(p.tdmAgent) : '&nbsp;') + '</td>' +
+      '<td>' + (p.tdmTarget ? escapeHtml(p.tdmTarget) : '&nbsp;') + '</td>' +
+      '<td>' + (p.tdmFrequency ? escapeHtml(p.tdmFrequency) : '&nbsp;') + '</td>' +
+      '<td>&nbsp;</td>' +
+      '<td>&nbsp;</td>' +
+    '</tr></tbody></table>';
+    if(p.tdmNextTrough) html += '<p class="print-dim" style="margin-top:6px;">Next trough due: ' + formatDateTime(p.tdmNextTrough) + '</p>';
+    html += '</div>';
+
+    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
+
+    document.getElementById("print-area").innerHTML = html;
+    document.title = "TDM Note - " + p.name;
+    window.print();
+  }
+
+  function exportAllPatients(){
+    if(state.patients.length === 0){
+      alert("No patients to export yet.");
+      return;
+    }
+    var groups = groupedPatients();
+    var ordered = UNIT_ORDER.reduce(function(acc, k){ return acc.concat(groups[k]); }, []);
+
+    var html = '<div class="print-header">' +
+      '<h1>Full Roster — Detailed Summary</h1>' +
+      '<div class="print-meta">Generated ' + genTimestamp() + ' · ' + ordered.length + ' patient(s)</div>' +
+    '</div>';
+    ordered.forEach(function(p, idx){
+      html += buildPatientBlockHtml(p);
+      if(idx < ordered.length - 1) html += '<div class="print-pagebreak"></div>';
+    });
+    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
+
+    document.getElementById("print-area").innerHTML = html;
+    document.title = "Full Roster - Detailed Summary";
+    window.print();
+  }
+
+  // Groups open follow-up tasks by area for the printed rounds report, so items generated from
+  // the same clinical section (e.g. AF) appear together under one heading rather than as flat
+  // lines each repeating the area. Each item gets a ☐ so it can be checked off on the printed
+  // page during rounds and reconciled against the app afterward.
+  function buildTodoCellHtml(openTasks){
+    if(!openTasks.length) return '<span class="print-dim">—</span>';
+    var groups = [];
+    var groupIndex = {};
+    openTasks.forEach(function(t){
+      var key = t.area || "";
+      if(!(key in groupIndex)){
+        groupIndex[key] = groups.length;
+        groups.push({ area: t.area, tasks: [] });
+      }
+      groups[groupIndex[key]].tasks.push(t);
+    });
+    return groups.map(function(g){
+      var itemsHtml = g.tasks.map(function(t){
+        return '<div>☐ ' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(' + formatDue(t.due) + ')</span>' : '') + '</div>';
+      }).join('');
+      if(!g.area) return itemsHtml;
+      return '<div style="margin-bottom:3px;"><strong>' + escapeHtml(g.area) + '</strong>' + itemsHtml + '</div>';
+    }).join('');
+  }
+
+  function buildRoundsPrintRow(p){
+    var medRec = !!p.coreChecks.medrec;
+    var vte = !!p.coreChecks.vte;
+    var crclCell = p.crcl ? escapeHtml(p.crcl) : "—";
+    var dxCell = escapeHtml(p.dx || "—") + (p.ef ? ' <span class="print-dim">(EF ' + escapeHtml(p.ef) + '%)</span>' : '');
+    var dxExtra = [];
+    if(p.workupPmh) dxExtra.push("PMH: " + escapeHtml(p.workupPmh));
+    if(dxExtra.length) dxCell += '<div class="print-dim" style="margin-top:2px;">' + dxExtra.join('<br>') + '</div>';
+    var focusParts = monitoringLines(p).map(function(l){ return "<div><strong>" + escapeHtml(l.label) + ":</strong> " + escapeHtml(l.value) + "</div>"; });
+    var focusCell = focusParts.join("");
+    if(!focusCell) focusCell = '<span class="print-dim">—</span>';
+    var openTasks = p.tasks.filter(function(t){ return !t.done; });
+    var todoCell = buildTodoCellHtml(openTasks);
+
+    var statusCell = '<div class="print-status-stack">' +
+      '<span class="' + (medRec ? "print-status-ok" : "") + '">' + (medRec ? "✓" : "☐") + ' Med Rec</span>' +
+      '<span class="' + (vte ? "print-status-ok" : "") + '">' + (vte ? "✓" : "☐") + ' VTE</span>' +
+      '<span>CrCl ' + crclCell + '</span>' +
+    '</div>';
+
+    return '<tr>' +
+      '<td>' + escapeHtml(p.name) + '<div class="print-dim" style="margin-top:2px;">Room ' + escapeHtml(p.room || "—") + (p.age ? " · Age " + escapeHtml(p.age) : "") + '</div>' + statusCell + '</td>' +
+      '<td style="max-width:170px; word-wrap:break-word;">' + dxCell + '</td>' +
+      '<td class="print-focus-cell">' + focusCell + '</td>' +
+      '<td>' + todoCell + '</td>' +
+    '</tr>';
+  }
+
+  function exportRoundsPDF(){
+    if(state.patients.length === 0){
+      alert("No patients yet.");
+      return;
+    }
+    var groups = groupedPatients();
+
+    var html = '<div class="print-header">' +
+      '<h1>Daily Rounds — ' + new Date().toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" }) + '</h1>' +
+      '<div class="print-meta">Generated ' + genTimestamp() + ' · ' + state.patients.length + ' patient(s)</div>' +
+    '</div>';
+
+    UNIT_ORDER.forEach(function(unitKey){
+      var list = groups[unitKey];
+      if(!list.length) return;
+      html += '<div class="print-section"><h2>' + UNIT_LABELS[unitKey] + ' (' + list.length + ')</h2>';
+      html += '<table class="print-table print-rounds-table"><thead><tr>' +
+        '<th>Patient</th><th style="width:170px;">Dx</th><th>Monitoring</th><th>To Do</th>' +
+      '</tr></thead><tbody>';
+      list.forEach(function(p){ html += buildRoundsPrintRow(p); });
+      html += '</tbody></table></div>';
+    });
+
+    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
+
+    document.getElementById("print-area").innerHTML = html;
+    document.title = "Daily Rounds - " + todayStr();
+    window.print();
+  }
+
+  window.addEventListener("afterprint", function(){
+    document.title = ORIGINAL_TITLE;
+  });
+
+  // ================= INIT =================
+  renderPatients();
+
+})();
+</script>
+</body>
+</html>
