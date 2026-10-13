@@ -184,12 +184,34 @@
     .iv-groups-row{grid-template-columns:1fr;}
   }
 
-  /* Printing is disabled so patient details don't end up on paper. */
-  #print-blocked{display:none;}
+  /* ---------- Daily Rounds print sheet ---------- */
+  #print-area{display:none;}
+  /* Only the Daily Rounds sheet can be printed; it carries labels, never names or rooms. */
   @media print{
-    body > *{ display:none !important; }
-    #print-blocked{ display:block !important; font-size:14px; padding:20px; }
+    @page{ margin:1.4cm; }
+    body > *:not(#print-area){ display:none !important; }
+    body{ background:#fff !important; padding:0 !important; }
+    #print-area{ display:block !important; background:#fff; color:#1a1a1a;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
   }
+  .print-header{border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:16px;}
+  .print-header h1{font-size:19px; margin:0 0 4px 0;}
+  .print-meta{font-size:11px; color:#555;}
+  .print-section{margin-bottom:18px;}
+  .print-section h2{font-size:12.5px; text-transform:uppercase; letter-spacing:0.5px; color:#333;
+    border-bottom:1px solid #ccc; padding-bottom:4px; margin:0 0 8px 0;}
+  .print-table{width:100%; border-collapse:collapse; font-size:12px;}
+  .print-table th, .print-table td{text-align:left; padding:5px 8px; border-bottom:1px solid #ddd; vertical-align:top;}
+  .print-table th{font-size:10.5px; text-transform:uppercase; color:#555; font-weight:700;}
+  .print-status-overdue{color:#b91c1c; font-weight:700;}
+  .print-status-today{color:#b45309; font-weight:700;}
+  .print-status-ok{color:#1a7a4c;}
+  .print-dim{color:#888; font-size:11px;}
+  .print-footer{margin-top:24px; padding-top:8px; border-top:1px solid #ccc; font-size:10.5px; color:#888; text-align:center;}
+  .print-rounds-table{font-size:10.5px;}
+  .print-rounds-table th, .print-rounds-table td{padding:4px 6px;}
+  .print-focus-cell div{margin-bottom:2px;}
+  .print-status-stack{margin-top:3px; display:flex; flex-direction:column; gap:1px; font-size:10.5px; color:#555;}
 </style>
 </head>
 <body>
@@ -215,6 +237,7 @@
       <div class="panel-title-row">
         <div class="panel-title">Add / Update Patient</div>
         <div class="panel-toolbar">
+          <button class="btn secondary small" id="rounds-export-btn">Print Today's Rounds</button>
           <button class="btn danger small" id="clear-all-btn">Clear All Patients</button>
         </div>
       </div>
@@ -241,7 +264,8 @@
 
 <footer>G. Hopkins, RPh | RVH CCU | For Educational Use Only</footer>
 
-<div id="print-blocked">Printing is disabled for this tracker to keep patient information off paper.</div>
+<!-- Populated on demand and shown only when printing -->
+<div id="print-area"></div>
 
 <script>
 (function(){
@@ -710,6 +734,7 @@
   document.getElementById("rp-age").innerHTML = ageBandOptionsHtml("", "Age range");
   document.getElementById("retention-days").textContent = RETENTION_DAYS;
   document.getElementById("clear-all-btn").addEventListener("click", clearAllPatients);
+  document.getElementById("rounds-export-btn").addEventListener("click", exportRoundsPDF);
 
   function ageBandOptionsHtml(selected, emptyLabel){
     return '<option value="">' + escapeHtml(emptyLabel) + '</option>' + AGE_BANDS.map(function(b){
@@ -2036,6 +2061,105 @@
     var ok = copyTextToClipboard(buildDailyNoteText(p));
     flashButton(btn, ok ? "Copied!" : "Copy failed");
   }
+
+  // ================= DAILY ROUNDS PRINT =================
+  var ORIGINAL_TITLE = document.title;
+
+  function genTimestamp(){
+    var now = new Date();
+    return now.toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" }) +
+      " at " + now.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
+  }
+
+  // Groups open follow-up tasks by area for the printed rounds report, so items generated from
+  // the same clinical section (e.g. AF) appear together under one heading rather than as flat
+  // lines each repeating the area. Each item gets a ☐ so it can be checked off on the printed
+  // page during rounds and reconciled against the app afterward.
+  function buildTodoCellHtml(openTasks){
+    if(!openTasks.length) return '<span class="print-dim">—</span>';
+    var groups = [];
+    var groupIndex = {};
+    openTasks.forEach(function(t){
+      var key = t.area || "";
+      if(!(key in groupIndex)){
+        groupIndex[key] = groups.length;
+        groups.push({ area: t.area, tasks: [] });
+      }
+      groups[groupIndex[key]].tasks.push(t);
+    });
+    return groups.map(function(g){
+      var itemsHtml = g.tasks.map(function(t){
+        return '<div>☐ ' + escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(' + formatDue(t.due) + ')</span>' : '') + '</div>';
+      }).join('');
+      if(!g.area) return itemsHtml;
+      return '<div style="margin-bottom:3px;"><strong>' + escapeHtml(g.area) + '</strong>' + itemsHtml + '</div>';
+    }).join('');
+  }
+
+  function buildRoundsPrintRow(p){
+    var medRec = !!p.coreChecks.medrec;
+    var vte = !!p.coreChecks.vte;
+    var crclCell = p.crcl ? escapeHtml(p.crcl) : "—";
+    var dxCell = escapeHtml(p.dx || "—") + (p.ef ? ' <span class="print-dim">(EF ' + escapeHtml(p.ef) + '%)</span>' : '');
+    var dxExtra = [];
+    if(p.workupPmh) dxExtra.push("PMH: " + escapeHtml(p.workupPmh));
+    if(dxExtra.length) dxCell += '<div class="print-dim" style="margin-top:2px;">' + dxExtra.join('<br>') + '</div>';
+    var focusParts = monitoringLines(p).map(function(l){ return "<div><strong>" + escapeHtml(l.label) + ":</strong> " + escapeHtml(l.value) + "</div>"; });
+    var focusCell = focusParts.join("");
+    if(!focusCell) focusCell = '<span class="print-dim">—</span>';
+    var openTasks = p.tasks.filter(function(t){ return !t.done; });
+    var todoCell = buildTodoCellHtml(openTasks);
+
+    var statusCell = '<div class="print-status-stack">' +
+      '<span class="' + (medRec ? "print-status-ok" : "") + '">' + (medRec ? "✓" : "☐") + ' Med Rec</span>' +
+      '<span class="' + (vte ? "print-status-ok" : "") + '">' + (vte ? "✓" : "☐") + ' VTE</span>' +
+      '<span>CrCl ' + crclCell + '</span>' +
+    '</div>';
+
+    return '<tr>' +
+      '<td>' + escapeHtml(patientTitle(p)) + (p.age ? '<div class="print-dim" style="margin-top:2px;">Age ' + escapeHtml(p.age) + '</div>' : '') +
+        '<div class="print-dim" style="margin-top:4px;">Bed: ________</div>' + statusCell + '</td>' +
+      '<td style="max-width:170px; word-wrap:break-word;">' + dxCell + '</td>' +
+      '<td class="print-focus-cell">' + focusCell + '</td>' +
+      '<td>' + todoCell + '</td>' +
+    '</tr>';
+  }
+
+  function exportRoundsPDF(){
+    if(state.patients.length === 0){
+      alert("No patients yet.");
+      return;
+    }
+    var groups = groupedPatients();
+
+    var html = '<div class="print-header">' +
+      '<h1>Daily Rounds — ' + new Date().toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" }) + '</h1>' +
+      '<div class="print-meta">Generated ' + genTimestamp() + ' · ' + state.patients.length + ' patient(s)</div>' +
+    '</div>';
+
+    UNIT_ORDER.forEach(function(unitKey){
+      var list = groups[unitKey];
+      if(!list.length) return;
+      html += '<div class="print-section"><h2>' + UNIT_LABELS[unitKey] + ' (' + list.length + ')</h2>';
+      html += '<table class="print-table print-rounds-table"><thead><tr>' +
+        '<th>Patient</th><th style="width:170px;">Dx</th><th>Monitoring</th><th>To Do</th>' +
+      '</tr></thead><tbody>';
+      list.forEach(function(p){ html += buildRoundsPrintRow(p); });
+      html += '</tbody></table></div>';
+    });
+
+    html += '<div class="print-footer">Confidential &mdash; shred after rounds &middot; Created by G. Hopkins, RPh</div>';
+
+    document.getElementById("print-area").innerHTML = html;
+    document.title = "Daily Rounds - " + todayStr();
+    window.print();
+  }
+
+  // Empty the print area afterwards so a later Ctrl+P can't reprint a stale list.
+  window.addEventListener("afterprint", function(){
+    document.title = ORIGINAL_TITLE;
+    document.getElementById("print-area").innerHTML = "";
+  });
 
   // ================= INIT =================
   renderPrivacyNotices();
