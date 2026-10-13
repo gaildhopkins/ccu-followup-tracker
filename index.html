@@ -130,6 +130,10 @@
 
   .empty{color:var(--text-faint); font-size:13px; text-align:center; padding:30px 0;}
 
+  .privacy-note{font-size:12px; color:var(--amber); background:var(--amber-bg); border-radius:8px; padding:8px 11px; margin-bottom:10px; line-height:1.45;}
+  .privacy-notice{font-size:12.5px; background:var(--teal-bg); border:1px solid var(--teal-dim); border-radius:8px; padding:10px 12px; margin-bottom:10px; line-height:1.5;}
+  .privacy-notice ul{margin:6px 0 8px 0; padding-left:18px;}
+
   /* ---------- Daily Rounds ---------- */
   .rounds-head-row{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:4px;}
   .rounds-field{display:flex; flex-direction:column; gap:3px;}
@@ -180,8 +184,9 @@
     .iv-groups-row{grid-template-columns:1fr;}
   }
 
-  /* ---------- Print / PDF export ---------- */
+  /* ---------- Daily Rounds print sheet ---------- */
   #print-area{display:none;}
+  /* Only the Daily Rounds sheet can be printed; it carries labels, never names or rooms. */
   @media print{
     @page{ margin:1.4cm; }
     body > *:not(#print-area){ display:none !important; }
@@ -192,12 +197,7 @@
   .print-header{border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:16px;}
   .print-header h1{font-size:19px; margin:0 0 4px 0;}
   .print-meta{font-size:11px; color:#555;}
-  .print-patient{margin-bottom:14px;}
-  .print-patient-name{font-size:16px; font-weight:700;}
-  .print-patient-room{font-size:12px; color:#555; margin-top:1px;}
   .print-section{margin-bottom:18px;}
-  .workup-note-print .print-section{margin-bottom:0;}
-  .workup-note-print .print-section h2{text-transform:none;}
   .print-section h2{font-size:12.5px; text-transform:uppercase; letter-spacing:0.5px; color:#333;
     border-bottom:1px solid #ccc; padding-bottom:4px; margin:0 0 8px 0;}
   .print-table{width:100%; border-collapse:collapse; font-size:12px;}
@@ -206,17 +206,8 @@
   .print-status-overdue{color:#b91c1c; font-weight:700;}
   .print-status-today{color:#b45309; font-weight:700;}
   .print-status-ok{color:#1a7a4c;}
-  .print-list{list-style:none; padding:0; margin:0; font-size:12.5px;}
-  .print-list li{padding:3px 0;}
-  .print-checked{color:#1a1a1a;}
-  .print-unchecked{color:#888;}
   .print-dim{color:#888; font-size:11px;}
-  .print-empty{font-size:12px; color:#888; font-style:italic; margin:0;}
-  .print-cat{margin-bottom:10px;}
-  .print-cat-title{font-weight:700; font-size:12.5px; margin-bottom:3px;}
   .print-footer{margin-top:24px; padding-top:8px; border-top:1px solid #ccc; font-size:10.5px; color:#888; text-align:center;}
-  .print-patient-block + .print-patient-block{margin-top:26px;}
-  .print-pagebreak{page-break-after:always;}
   .print-rounds-table{font-size:10.5px;}
   .print-rounds-table th, .print-rounds-table td{padding:4px 6px;}
   .print-focus-cell div{margin-bottom:2px;}
@@ -247,13 +238,13 @@
         <div class="panel-title">Add / Update Patient</div>
         <div class="panel-toolbar">
           <button class="btn secondary small" id="rounds-export-btn">Print Today's Rounds</button>
-          <button class="btn secondary small" id="export-all-btn">Full Detail Export (All)</button>
+          <button class="btn danger small" id="clear-all-btn">Clear All Patients</button>
         </div>
       </div>
+      <div class="privacy-note"><strong>No patient identifiers.</strong> Patients are labelled automatically (Patient A, B, C&hellip;). Do not enter names, initials, MRN, room/bed numbers or dates of birth in any field, including free-text notes.</div>
+      <div id="privacy-notice-area"></div>
       <div class="add-patient-row">
-        <input type="text" id="rp-name" placeholder="Name / Initials" style="flex:2; min-width:130px;">
-        <input type="text" id="rp-room" placeholder="Room / Bed" style="flex:1; min-width:90px;">
-        <input type="number" id="rp-age" placeholder="Age" style="flex:0.6; min-width:70px;">
+        <select id="rp-age" style="flex:0 0 120px;"></select>
         <input type="text" id="rp-dx" placeholder="Diagnosis / RFA" style="flex:2; min-width:150px;">
         <input type="number" id="rp-ef" placeholder="EF %" style="flex:0 0 80px;">
         <select id="rp-unit" style="flex:0 0 170px;">
@@ -263,7 +254,7 @@
         </select>
         <button class="btn" id="rounds-add-btn">+ Add Patient</button>
       </div>
-      <div style="font-size:11.5px; color:var(--text-dim); margin-top:8px;">Patients stay on this list day to day &mdash; remove only when discharged or transferred off your beds. Review checklist items reset each day but show a hint if confirmed the day before.</div>
+      <div style="font-size:11.5px; color:var(--text-dim); margin-top:8px;">Patients stay on this list day to day &mdash; remove when discharged or transferred off your beds. Any patient not updated for <span id="retention-days"></span> days is removed automatically. Review checklist items reset each day but show a hint if confirmed the day before. Data is stored only in this browser on this device.</div>
     </div>
 
     <div id="rounds-list"></div>
@@ -300,6 +291,41 @@
     try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
   });
 
+  // ---------------- Privacy ----------------
+  // No direct identifiers are stored: patients get an automatic label, age is kept only as a
+  // band, and any patient not updated for RETENTION_DAYS is purged. Long enough to cover a
+  // weekend away; short enough that discharged patients don't linger on a shared workstation.
+  var RETENTION_DAYS = 4;
+  var AGE_BANDS = ["<40", "40–49", "50–59", "60–69", "70–79", "80–89", "≥90"];
+  var labelMigrationMap = [];   // shown once after upgrading, never persisted
+  var autoRemovedCount = 0;     // shown once after an automatic purge, never persisted
+
+  function ageToBand(age){
+    var n = parseInt(age, 10);
+    if(isNaN(n)) return "";
+    if(n < 40) return AGE_BANDS[0];
+    if(n >= 90) return AGE_BANDS[6];
+    return AGE_BANDS[Math.floor(n / 10) - 3];
+  }
+  // A, B, … Z, AA, AB, … — the lowest label not currently in use.
+  function labelFromIndex(i){
+    var s = "";
+    i += 1;
+    while(i > 0){ var r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); }
+    return s;
+  }
+  function labelIndex(label){
+    var n = 0;
+    for(var i = 0; i < label.length; i++) n = n * 26 + (label.charCodeAt(i) - 64);
+    return n - 1;
+  }
+  function nextPatientLabel(patients){
+    var used = {};
+    patients.forEach(function(p){ if(p.label) used[p.label] = true; });
+    for(var i = 0; ; i++){ if(!used[labelFromIndex(i)]) return labelFromIndex(i); }
+  }
+  function patientTitle(p){ return "Patient " + p.label; }
+
   // ---------------- Storage ----------------
   var STORE_KEY = "ccu_tracker_v1";
   function loadState(){
@@ -315,7 +341,7 @@
     if(!s.migratedRounds && s.roundsPatients && s.roundsPatients.length){
       s.roundsPatients.forEach(function(rp){
         s.patients.push({
-          id: rp.id, name: rp.name, room: rp.room || "", dx: rp.dx || "", ef: rp.ef || "",
+          id: rp.id, name: rp.name, room: rp.room || "", dx: rp.dx || "", ef: rp.ef || "", // name/room scrubbed below
           unit: "floor_im", tasks: [],
           focus: rp.focus || {}, crcl: rp.crcl || "", coreChecks: {},
           tdmAgent: rp.tdmAgent || "", tdmNextTrough: rp.tdmNextTrough || "", tdmTarget: rp.tdmTarget || "", tdmFrequency: rp.tdmFrequency || "",
@@ -327,6 +353,27 @@
     }
     s.migratedRounds = true;
     delete s.roundsPatients;
+
+    // Privacy scrub: earlier versions stored a name/initials and room/bed, and an exact age.
+    // Remove them permanently, give each patient an anonymous label, and keep the old → new
+    // mapping in memory only (never saved) so it can be shown once for the user to note down.
+    // Labels are handed out in the old on-screen order (unit, then room) so A, B, C follow the
+    // list as the user last saw it.
+    var legacyUnitOrder = ["ccu", "floor_im", "floor", "floor_hosp"];
+    s.patients.slice().sort(function(a, b){
+      var u = legacyUnitOrder.indexOf(a.unit || "ccu") - legacyUnitOrder.indexOf(b.unit || "ccu");
+      if(u) return u;
+      return String(a.room || "").localeCompare(String(b.room || ""), undefined, { numeric: true, sensitivity: "base" });
+    }).forEach(function(p){
+      if(!p.label) p.label = nextPatientLabel(s.patients);
+      if(p.name || p.room){
+        labelMigrationMap.push({ label: p.label, was: [p.name, p.room ? "Room " + p.room : ""].filter(Boolean).join(", ") });
+      }
+      delete p.name;
+      delete p.room;
+      if(p.age !== undefined && p.age !== "" && AGE_BANDS.indexOf(p.age) === -1) p.age = ageToBand(p.age);
+      if(!p.lastUpdated) p.lastUpdated = Date.now();
+    });
 
     // Backfill any missing fields on existing patient records (from earlier versions of this file).
     s.patients.forEach(function(p){
@@ -452,10 +499,36 @@
     }
     return s;
   }
+  // Last-saved content of each patient, used to stamp lastUpdated only on patients that actually
+  // changed — so the many edit paths don't each need to remember to do it.
+  var patientSnapshots = {};
+  function patientSnapshot(p){
+    return JSON.stringify(p, function(k, v){ return k === "lastUpdated" ? undefined : v; });
+  }
   function saveState(){
+    state.patients.forEach(function(p){
+      var snap = patientSnapshot(p);
+      if(patientSnapshots[p.id] !== snap){
+        p.lastUpdated = Date.now();
+        patientSnapshots[p.id] = snap;
+      }
+    });
     try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
   }
+  function purgeExpiredPatients(){
+    var cutoff = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    var before = state.patients.length;
+    state.patients = state.patients.filter(function(p){ return p.lastUpdated >= cutoff; });
+    var removed = before - state.patients.length;
+    if(removed){
+      autoRemovedCount += removed;
+      try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+    }
+    return removed;
+  }
   var state = loadState();
+  state.patients.forEach(function(p){ patientSnapshots[p.id] = patientSnapshot(p); });
+  purgeExpiredPatients();
   saveState();
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -657,21 +730,66 @@
   var openPatients = {};
 
   document.getElementById("rounds-add-btn").addEventListener("click", addPatient);
-  document.getElementById("rp-name").addEventListener("keydown", function(e){ if(e.key==="Enter") addPatient(); });
+  document.getElementById("rp-dx").addEventListener("keydown", function(e){ if(e.key==="Enter") addPatient(); });
+  document.getElementById("rp-age").innerHTML = ageBandOptionsHtml("", "Age range");
+  document.getElementById("retention-days").textContent = RETENTION_DAYS;
+  document.getElementById("clear-all-btn").addEventListener("click", clearAllPatients);
   document.getElementById("rounds-export-btn").addEventListener("click", exportRoundsPDF);
-  document.getElementById("export-all-btn").addEventListener("click", exportAllPatients);
+
+  function ageBandOptionsHtml(selected, emptyLabel){
+    return '<option value="">' + escapeHtml(emptyLabel) + '</option>' + AGE_BANDS.map(function(b){
+      return '<option value="' + escapeHtml(b) + '"' + (selected === b ? " selected" : "") + '>' + escapeHtml(b) + '</option>';
+    }).join("");
+  }
+
+  function clearAllPatients(){
+    if(!state.patients.length) return;
+    if(!confirm("Remove ALL " + state.patients.length + " patient(s) from this device? This cannot be undone.")) return;
+    state.patients = [];
+    patientSnapshots = {};
+    saveState();
+    renderPatients();
+  }
+
+  // One-time notices: the old → new label mapping after the privacy upgrade, and how many
+  // patients were auto-removed for inactivity. Held in memory only; gone on dismiss or reload.
+  function renderPrivacyNotices(){
+    var area = document.getElementById("privacy-notice-area");
+    var html = "";
+    if(labelMigrationMap.length){
+      html += '<div class="privacy-notice"><strong>Names and rooms have been removed from this tracker.</strong> ' +
+        'Your existing patients now have these labels &mdash; note them down if you need to, as this list will not be shown again:' +
+        '<ul>' + labelMigrationMap.map(function(m){ return '<li>' + escapeHtml(m.was) + ' &rarr; <strong>Patient ' + escapeHtml(m.label) + '</strong></li>'; }).join("") + '</ul>' +
+        '<button class="btn small" data-dismiss-notice="labels">Done &mdash; hide this</button></div>';
+    }
+    if(autoRemovedCount){
+      html += '<div class="privacy-notice">' + autoRemovedCount + ' patient(s) were removed automatically after ' + RETENTION_DAYS + ' days without updates. ' +
+        '<button class="btn small secondary" data-dismiss-notice="purge">OK</button></div>';
+    }
+    area.innerHTML = html;
+    area.querySelectorAll("[data-dismiss-notice]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        if(btn.dataset.dismissNotice === "labels") labelMigrationMap = [];
+        else autoRemovedCount = 0;
+        renderPrivacyNotices();
+      });
+    });
+  }
+
+  // Purge also runs while the page stays open (e.g. a tab left open over a weekend).
+  function purgeAndRefresh(){
+    if(purgeExpiredPatients()){ renderPatients(); renderPrivacyNotices(); }
+  }
+  setInterval(purgeAndRefresh, 60 * 60 * 1000);
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) purgeAndRefresh(); });
 
   function addPatient(){
-    var nameEl = document.getElementById("rp-name");
-    var roomEl = document.getElementById("rp-room");
     var ageEl = document.getElementById("rp-age");
     var dxEl = document.getElementById("rp-dx");
     var efEl = document.getElementById("rp-ef");
     var unitEl = document.getElementById("rp-unit");
-    var name = nameEl.value.trim();
-    if(!name) return;
     var p = {
-      id: uid(), name: name, room: roomEl.value.trim(), age: ageEl.value.trim(), dx: dxEl.value.trim(), ef: efEl.value.trim(),
+      id: uid(), label: nextPatientLabel(state.patients), age: ageEl.value, dx: dxEl.value.trim(), ef: efEl.value.trim(),
       unit: unitEl.value, tasks: [], focus: {}, crcl: "", coreChecks: {},
       tdmAgent: "", tdmLevel: "", tdmNextTrough: "", tdmTarget: "", tdmFrequency: "", a1cLevel: "", a1cChanges: "", workupGlycemicAtTarget: "",
       itemNotes: {}, checksByDate: {},
@@ -692,7 +810,7 @@
       workupHomeMeds: ""
     };
     state.patients.unshift(p);
-    nameEl.value = ""; roomEl.value = ""; ageEl.value = ""; dxEl.value = ""; efEl.value = "";
+    ageEl.value = ""; dxEl.value = ""; efEl.value = "";
     saveState();
     renderPatients();
   }
@@ -711,20 +829,14 @@
     saveState();
   }
 
-  // Natural/numeric-aware room sort so "2" < "10" and "12A" sorts sensibly; blank rooms sort last.
-  function naturalRoomCompare(a, b){
-    var ar = (a.room || "").trim();
-    var br = (b.room || "").trim();
-    if(!ar && !br) return 0;
-    if(!ar) return 1;
-    if(!br) return -1;
-    return ar.localeCompare(br, undefined, { numeric: true, sensitivity: "base" });
+  function labelCompare(a, b){
+    return labelIndex(a.label) - labelIndex(b.label);
   }
 
   function groupedPatients(){
     var groups = { ccu: [], floor_im: [], floor_hosp: [] };
     state.patients.forEach(function(p){ (groups[p.unit] || groups.floor_im).push(p); });
-    Object.keys(groups).forEach(function(k){ groups[k].sort(naturalRoomCompare); });
+    Object.keys(groups).forEach(function(k){ groups[k].sort(labelCompare); });
     return groups;
   }
 
@@ -1012,8 +1124,7 @@
         '<div class="rounds-field"><label>Date</label><input type="datetime-local" value="' + escapeHtml(p.tdmNextTrough) + '" data-field="tdmNextTrough" data-pid="' + p.id + '" style="width:190px;"></div>' +
         '<div class="rounds-field"><label>Target Level</label><input type="text" value="' + escapeHtml(p.tdmTarget) + '" data-field="tdmTarget" data-pid="' + p.id + '" style="width:110px;"></div>' +
         '<div class="rounds-field"><label>Monitoring Frequency</label><input type="text" value="' + escapeHtml(p.tdmFrequency) + '" data-field="tdmFrequency" data-pid="' + p.id + '" style="width:170px;"></div>' +
-      '</div>' +
-      '<button type="button" class="btn small secondary" data-tdm-note="' + p.id + '" style="margin:8px 0;">Generate TDM Consult Note</button>';
+      '</div>';
 
     html += '<div class="workup-subtitle">Other</div>' +
       workupFieldsRowHtml(p, WORKUP_OTHER_FIELDS) +
@@ -1027,8 +1138,7 @@
       '</div>' +
       '<div class="workup-body' + (isOpen ? " open" : "") + '" id="workup-body-' + p.id + '">' +
         html +
-        '<button type="button" class="btn small secondary" data-workup-note="' + p.id + '" style="margin-top:10px;">Generate Workup Note</button>' +
-        '<button type="button" class="btn small secondary" data-workup-note-copy="' + p.id + '" style="margin-top:10px; margin-left:6px;">Copy Workup Note</button>' +
+        '<button type="button" class="btn small secondary" data-workup-note-copy="' + p.id + '" style="margin-top:10px;">Copy Workup Note</button>' +
       '</div>' +
     '</div>';
   }
@@ -1401,8 +1511,7 @@
     card.innerHTML =
       '<div class="patient-head" data-pid="' + p.id + '">' +
         '<div>' +
-          '<span class="patient-name">' + escapeHtml(p.name) + '</span>' +
-          (p.room ? '<span class="patient-meta"> Room ' + escapeHtml(p.room) + '</span>' : '') +
+          '<span class="patient-name">' + escapeHtml(patientTitle(p)) + '</span>' +
           (p.age ? '<span class="patient-meta"> · Age ' + escapeHtml(p.age) + '</span>' : '') +
           (p.dx ? '<span class="patient-meta"> · ' + escapeHtml(p.dx) + '</span>' : '') +
           (p.ef ? '<span class="patient-meta"> · EF ' + escapeHtml(p.ef) + '%</span>' : '') +
@@ -1414,8 +1523,7 @@
       '</div>' +
       '<div class="task-list" id="tasks-' + p.id + '">' +
         '<div class="rounds-head-row">' +
-          '<div class="rounds-field"><label>Room</label><input type="text" value="' + escapeHtml(p.room) + '" data-field="room" data-pid="' + p.id + '" style="width:80px;"></div>' +
-          '<div class="rounds-field"><label>Age</label><input type="number" value="' + escapeHtml(p.age) + '" data-field="age" data-pid="' + p.id + '" style="width:65px;"></div>' +
+          '<div class="rounds-field"><label>Age</label><select data-field="age" data-pid="' + p.id + '">' + ageBandOptionsHtml(p.age, "—") + '</select></div>' +
           '<div class="rounds-field"><label>Diagnosis</label><input type="text" value="' + escapeHtml(p.dx) + '" data-field="dx" data-pid="' + p.id + '" style="width:200px;"></div>' +
           '<div class="rounds-field"><label>EF %</label><input type="number" value="' + escapeHtml(p.ef) + '" data-field="ef" data-pid="' + p.id + '" style="width:70px;"></div>' +
           '<div class="rounds-field"><label>Unit</label><select data-field="unit" data-pid="' + p.id + '">' +
@@ -1437,7 +1545,6 @@
         '<div class="rounds-footer-row">' +
           '<button class="btn small secondary" data-daily-note-copy="' + p.id + '">Copy Daily Note</button>' +
           '<button class="btn small secondary" data-add-followups="' + p.id + '">Add Follow-Ups for Unchecked</button>' +
-          '<button class="btn small secondary" data-export-pdf="' + p.id + '">Export PDF</button>' +
           '<button class="btn small danger" data-del-patient="' + p.id + '">Remove (Discharged)</button>' +
         '</div>' +
       '</div>';
@@ -1470,9 +1577,6 @@
         document.getElementById("workup-body-" + pid).classList.toggle("open", openWorkupSections[pid]);
         el.querySelector("span:last-child").textContent = openWorkupSections[pid] ? "▾" : "▸";
       });
-    });
-    wrap.querySelectorAll("[data-workup-note]").forEach(function(btn){
-      btn.addEventListener("click", function(e){ e.stopPropagation(); exportWorkupNote(btn.dataset.workupNote); });
     });
     wrap.querySelectorAll("[data-workup-note-copy]").forEach(function(btn){
       btn.addEventListener("click", function(e){ e.stopPropagation(); copyWorkupNote(btn.dataset.workupNoteCopy, btn); });
@@ -1582,12 +1686,6 @@
     wrap.querySelectorAll(".del-task").forEach(function(btn){
       btn.addEventListener("click", function(e){ e.stopPropagation(); deleteTask(btn.dataset.pid, btn.dataset.tid); });
     });
-    wrap.querySelectorAll("[data-export-pdf]").forEach(function(btn){
-      btn.addEventListener("click", function(e){ e.stopPropagation(); exportPatientPDF(btn.dataset.exportPdf); });
-    });
-    wrap.querySelectorAll("[data-tdm-note]").forEach(function(btn){
-      btn.addEventListener("click", function(e){ e.stopPropagation(); exportTdmConsultNote(btn.dataset.tdmNote); });
-    });
     wrap.querySelectorAll("[data-del-patient]").forEach(function(btn){
       btn.addEventListener("click", function(e){ e.stopPropagation(); deletePatient(btn.dataset.delPatient); });
     });
@@ -1599,16 +1697,8 @@
     });
   }
 
-  // ================= PDF EXPORT (print-optimized view) =================
-  var ORIGINAL_TITLE = document.title;
-
-  function genTimestamp(){
-    var now = new Date();
-    return now.toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" }) +
-      " at " + now.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
-  }
-
-  // Currently-checked IV Critical Care Medications with their entered dose, for pulling into print/export.
+  // ================= NOTE CONTENT (shared by the copy-to-clipboard notes) =================
+  // Currently-checked IV Critical Care Medications with their entered dose, for pulling into the copied notes.
   function activeIvMeds(p){
     var todayChecks = getTodayChecks(p);
     var active = [];
@@ -1622,7 +1712,7 @@
   }
 
   // Currently-checked HFrEF/HFpEF/AF/ACS guideline items, grouped by condition, for pulling into
-  // print/export. Shows what was typed into each item's note box (the actual drug/dose chosen)
+  // the copied notes. Shows what was typed into each item's note box (the actual drug/dose chosen)
   // rather than the drug class prompt, falling back to the class only if nothing was entered.
   function activeCvChecksByGroup(p){
     var todayChecks = getTodayChecks(p);
@@ -1633,9 +1723,8 @@
     }).filter(function(g){ return g.entries.length; });
   }
 
-  // Pulls every entered Initial Workup field into a single "Monitoring" summary — used by both
-  // the Patient Summary PDF and the compact Daily Rounds table so nothing typed in Workup needs
-  // re-entering to show up in the daily print. Long narrative fields (Presenting Complaint, PMH,
+  // Pulls every entered Initial Workup field into a single "Monitoring" summary — used by the
+  // Daily Note so nothing typed in Workup needs re-entering to show up there. Long narrative fields (Presenting Complaint, PMH,
   // Home Meds) stay out of this quick summary and only appear in the full Workup Note.
   // Same head-to-toe order as the Initial Workup form: Infusions, Neuro, CV, Resp, GI, GU,
   // ID (Abx, Cultures, TDM, WBC/Temp — matching the ID section's internal order), Glycemic, Heme.
@@ -1748,7 +1837,7 @@
     return lines;
   }
 
-  // Formats each antibiotic row as "Drug — dose" for print, skipping rows with nothing selected.
+  // Formats each antibiotic row as "Drug — dose" for the notes, skipping rows with nothing selected.
   function formattedAbxRows(p){
     return p.abxRows.map(function(r){
       var label = r.drug;
@@ -1757,250 +1846,8 @@
     }).filter(Boolean);
   }
 
-  function buildPatientBlockHtml(p){
-    var openTasks = p.tasks.filter(function(t){ return !t.done; })
-      .sort(function(a,b){ return (a.due||"9999").localeCompare(b.due||"9999"); });
-    var doneTasks = p.tasks.filter(function(t){ return t.done; });
-
-    var html = '<div class="print-patient-block">';
-    html += '<div class="print-patient">';
-    html += '<div class="print-patient-name">' + escapeHtml(p.name) + ' <span class="print-dim">(' + UNIT_LABELS[p.unit] + ')</span></div>';
-    var metaBits = [];
-    if(p.room) metaBits.push("Room " + p.room);
-    if(p.age) metaBits.push("Age " + p.age);
-    if(p.dx) metaBits.push(p.dx);
-    if(p.ef) metaBits.push("EF " + p.ef + "%");
-    if(metaBits.length) html += '<div class="print-patient-room">' + escapeHtml(metaBits.join(" · ")) + '</div>';
-    html += '</div>';
-
-    var reviewItems = ROUNDS_CORE_ITEMS.slice();
-    html += '<div class="print-section"><h2>Core Review</h2><ul class="print-list">';
-    reviewItems.forEach(function(item){
-      var checked = !!p.coreChecks[item.id];
-      var note = p.itemNotes[item.id];
-      html += '<li class="' + (checked ? "print-checked" : "print-unchecked") + '">' + (checked ? "✓" : "☐") + ' ' + escapeHtml(item.t) +
-        (note ? ' <span class="print-dim">— ' + escapeHtml(note) + '</span>' : '') + '</li>';
-    });
-    html += '</ul>';
-    if(p.ivpoRows && p.ivpoRows.length){
-      var ivpoBits = p.ivpoRows.map(function(r){
-        var label = r.drugClass === "Other" ? (r.otherText || "Other") : r.drugClass;
-        if(!label) return null;
-        return escapeHtml(label) + (r.note ? " (" + escapeHtml(r.note) + ")" : "");
-      }).filter(Boolean);
-      if(ivpoBits.length) html += '<p class="print-dim" style="margin:2px 0 0 0;">IV→PO: ' + ivpoBits.join("; ") + '</p>';
-    }
-    html += '</div>';
-
-    var monLines = monitoringLines(p);
-    if(monLines.length){
-      html += '<div class="print-section"><h2>Monitoring</h2>' +
-        monLines.map(function(l){ return '<p class="print-dim" style="margin:2px 0;">' + escapeHtml(l.label) + ': ' + escapeHtml(l.value) + '</p>'; }).join("") +
-      '</div>';
-    }
-
-    html += '<div class="print-section"><h2>Open Follow-Up Tasks (' + openTasks.length + ')</h2>';
-    if(openTasks.length){
-      html += '<table class="print-table"><thead><tr><th>Task</th><th>Due</th><th>Priority</th><th>Status</th></tr></thead><tbody>';
-      openTasks.forEach(function(t){
-        var status = dueStatus(t.due);
-        var statusLabel = status === "overdue" ? "Overdue" : (status === "today" ? "Due Today" : (status === "ok" ? "Upcoming" : "—"));
-        html += '<tr>' +
-          '<td>' + escapeHtml(taskDisplayText(t)) + '</td>' +
-          '<td>' + formatDue(t.due) + '</td>' +
-          '<td>' + (t.priority === "urgent" ? "Urgent" : "Routine") + '</td>' +
-          '<td class="print-status-' + status + '">' + statusLabel + '</td>' +
-        '</tr>';
-      });
-      html += '</tbody></table>';
-    } else {
-      html += '<p class="print-empty">No open follow-up tasks.</p>';
-    }
-    html += '</div>';
-
-    html += '<div class="print-section"><h2>Completed Tasks (' + doneTasks.length + ')</h2>';
-    if(doneTasks.length){
-      html += '<ul class="print-list">';
-      doneTasks.forEach(function(t){
-        html += '<li>✓ ' + escapeHtml(taskDisplayText(t)) + (t.due ? ' <span class="print-dim">(was due ' + formatDue(t.due) + ')</span>' : '') + '</li>';
-      });
-      html += '</ul>';
-    } else {
-      html += '<p class="print-empty">No completed tasks.</p>';
-    }
-    html += '</div>';
-
-    html += '</div>'; // .print-patient-block
-    return html;
-  }
-
-  function exportPatientPDF(pid){
-    var p = state.patients.find(function(p){ return p.id === pid; });
-    if(!p) return;
-
-    var html = '<div class="print-header">' +
-      '<h1>Patient Summary</h1>' +
-      '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
-    '</div>';
-    html += buildPatientBlockHtml(p);
-    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
-
-    document.getElementById("print-area").innerHTML = html;
-    document.title = "Patient Summary - " + p.name;
-    window.print();
-  }
-
-  // Formats the Initial Workup fields into a printable admission note. Sections with nothing
-  // entered are omitted. Follow-Up Items are pulled live from the patient's existing
-  // Follow-Up/To-Do task list rather than a separate field, so it never goes out of sync.
-  function buildWorkupNoteHtml(p){
-    var html = '<div class="workup-note-print">';
-
-    var today = getTodayChecks(p);
-
-    function textSection(title, text){
-      if(!text) return "";
-      return '<div class="print-section"><p style="white-space:pre-wrap; margin:0;"><strong>' + escapeHtml(title + ":") + '</strong> ' + escapeHtml(text) + '</p></div>';
-    }
-    // One compact line per section (fields joined by ", "), matching the Monitoring row style
-    // used in the Daily Rounds report, rather than a separate line for every single field.
-    function bulletSection(title, lines){
-      if(!lines.length) return "";
-      return '<div class="print-section"><h2>' + escapeHtml(title + ":") + '</h2><p style="margin:0;">' + escapeHtml(lines.join(", ")) + '</p></div>';
-    }
-    // Same as bulletSection but without the category heading (POC/Safety/Other read fine as a
-    // bare line without a label repeating what the content already says).
-    function bulletSectionNoTitle(lines){
-      if(!lines.length) return "";
-      return '<div class="print-section"><p style="margin:0;">' + escapeHtml(lines.join(", ")) + '</p></div>';
-    }
-    function checkedItemLines(items){
-      return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
-        var note = p.itemNotes[item.id];
-        if(item.unit) return item.t + (note ? " " + note + " " + item.unit : "");
-        return item.t + (note ? " " + note : "");
-      });
-    }
-    // For the CV condition-query groups (HFrEF/HFpEF/AF/ACS): the drug class name (item.t) is
-    // just a prompt — what actually matters is what was typed into the note box, so show that
-    // instead of the class, falling back to the class only if nothing was entered.
-    function checkedItemEntries(items){
-      return items.filter(function(item){ return !!today[item.id]; }).map(function(item){
-        return p.itemNotes[item.id] || item.t;
-      });
-    }
-
-    html += bulletSectionNoTitle(p.dx ? ["A: " + p.dx] : []);
-
-    html += bulletSection("Hx", p.workupPmh ? [p.workupPmh] : []);
-
-    var infusionLines = IV_MEDS_GROUPS.reduce(function(acc, g){ return acc.concat(checkedItemLines(g.items)); }, []);
-    if(p.workupInfusionsOther) infusionLines.push("Other " + p.workupInfusionsOther);
-    html += bulletSection("Infusions", infusionLines);
-
-    var neuroLines = [];
-    if(p.workupNeuroGeneral) neuroLines.push(p.workupNeuroGeneral);
-    neuroLines = neuroLines.concat(WORKUP_NEURO_FIELDS.filter(function(f){ return f.field !== "workupNeuroGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
-    html += bulletSection("Neuro", neuroLines);
-
-    html += bulletSection("CV", WORKUP_CV_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){
-      if(f.label === "Rhythm" || f.label === "General") return p[f.field];
-      return f.label + " " + p[f.field];
-    }));
-    CV_CHECK_GROUPS.forEach(function(g){
-      html += bulletSection(g.shortLabel, checkedItemEntries(g.items));
-    });
-
-    var respLines = [];
-    if(p.respMode) respLines.push(p.respMode);
-    if(p.respFio2) respLines.push("FiO2 " + p.respFio2 + "%");
-    if(p.respFlowRate) respLines.push("Flow " + p.respFlowRate);
-    if(p.respSettings) respLines.push("Support " + p.respSettings);
-    if(p.respPeep) respLines.push("PEEP " + p.respPeep);
-    if(p.workupRespCxr) respLines.push("CXR " + p.workupRespCxr);
-    if(p.workupRespChestCt) respLines.push("Chest CT " + p.workupRespChestCt);
-    if(p.workupRespChestTube) respLines.push("Chest Tube " + p.workupRespChestTube);
-    html += bulletSection("Resp", respLines);
-
-    html += bulletSection("GI", WORKUP_GI_FIELDS.filter(function(f){ return f.field !== "workupGiGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
-
-    html += bulletSection("GU", WORKUP_GU_FIELDS.filter(function(f){ return f.field !== "workupGuGeneral" && p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
-
-    var idLines = formattedAbxRows(p);
-    if(p.abxDuration) idLines.push("Duration " + p.abxDuration);
-    if(p.abxStopDate) idLines.push("ASO/Stop date " + formatDue(p.abxStopDate));
-    if(today["abx-appropriate"]){
-      var aspNote = p.itemNotes["abx-appropriate"];
-      idLines.push("ASP rqd" + (aspNote ? " — " + aspNote : ""));
-    }
-    if(p.cultures && p.cultures.length){
-      p.cultures.forEach(function(c){
-        var bits = [];
-        if(c.site) bits.push(c.site);
-        bits.push(c.status || "Pending");
-        if(c.organism) bits.push(c.organism);
-        if(c.sens) bits.push("Sens " + c.sens);
-        idLines.push("Culture — " + bits.join(", "));
-      });
-    }
-    if(p.workupIdWbc) idLines.push("WBC " + p.workupIdWbc);
-    if(p.workupIdTemp) idLines.push("Temp " + p.workupIdTemp);
-    if(p.workupIdCrp) idLines.push("CRP " + p.workupIdCrp);
-    if(p.workupIdProcalcitonin) idLines.push("Procalcitonin " + p.workupIdProcalcitonin);
-    if(p.workupIdImaging) idLines.push("Imaging " + p.workupIdImaging);
-    html += bulletSection("ID", idLines);
-
-    var glycemicLines = [];
-    if(p.workupGlycemicPocTrend) glycemicLines.push("POC " + p.workupGlycemicPocTrend);
-    if(p.a1cLevel) glycemicLines.push("A1C " + p.a1cLevel);
-    if(p.a1cChanges) glycemicLines.push("Therapy " + p.a1cChanges);
-    if(p.workupGlycemicAtTarget) glycemicLines.push("At Target " + p.workupGlycemicAtTarget);
-    html += bulletSectionNoTitle(glycemicLines);
-
-    html += bulletSection("Hgb", WORKUP_HEME_FIELDS.filter(function(f){ return p[f.field]; }).map(function(f){ return f.label + " " + p[f.field]; }));
-
-    var tdmLines = [];
-    if(p.tdmAgent) tdmLines.push("Agent " + p.tdmAgent);
-    if(p.tdmLevel) tdmLines.push("Level " + p.tdmLevel);
-    if(p.tdmNextTrough) tdmLines.push("Date " + formatDateTime(p.tdmNextTrough));
-    if(p.tdmTarget) tdmLines.push("Target " + p.tdmTarget);
-    if(p.tdmFrequency) tdmLines.push("Frequency " + p.tdmFrequency);
-    html += bulletSection("TDM", tdmLines);
-
-    var renaldoseItem = ROUNDS_CORE_ITEMS.filter(function(i){ return i.id === "renaldose"; })[0];
-    var safetyLines = [p.itemNotes.vte || "VTE px"];
-    safetyLines.push((p.coreChecks.renaldose ? "✓ " : "☐ ") + renaldoseItem.t);
-    html += bulletSectionNoTitle(safetyLines);
-
-    var otherLines = [];
-    if(p.workupOtherSmoker) otherLines.push("Smoker " + p.workupOtherSmoker);
-    if(p.workupOtherSmoker === "Y" && p.workupOtherNrt) otherLines.push("NRT Ordered " + p.workupOtherNrt);
-    if(p.workupOtherDrugCoverage) otherLines.push("Drug Coverage " + p.workupOtherDrugCoverage);
-    html += bulletSectionNoTitle(otherLines);
-
-    html += textSection("Home Meds", p.workupHomeMeds);
-
-    var openTasks = p.tasks.filter(function(t){ return !t.done; });
-    html += '<div class="print-section"><p style="margin:0;"><strong>To Do:</strong> ' +
-      (openTasks.length ? openTasks.map(function(t){
-        return escapeHtml(t.text) + (t.due ? ' <span class="print-dim">(due ' + formatDue(t.due) + ')</span>' : '') + (t.priority === "urgent" ? ' <span class="print-dim">[Urgent]</span>' : '');
-      }).join(", ") : '<span class="print-empty">No open follow-up items.</span>') +
-    '</p></div>';
-
-    html += '</div>';
-    return html;
-  }
-
-  function exportWorkupNote(pid){
-    var p = state.patients.find(function(p){ return p.id === pid; });
-    if(!p) return;
-    document.getElementById("print-area").innerHTML = buildWorkupNoteHtml(p);
-    document.title = "Initial Workup - " + p.name;
-    window.print();
-  }
-
-  // Plain-text mirror of buildWorkupNoteHtml — same section content/order, formatted for pasting
-  // directly into an EMR or documentation system rather than printing.
+  // Initial Workup note as plain text, formatted for pasting directly into an EMR or
+  // documentation system. Sections with nothing entered are omitted.
   function buildWorkupNoteText(p){
     var out = [];
 
@@ -2215,68 +2062,13 @@
     flashButton(btn, ok ? "Copied!" : "Copy failed");
   }
 
-  // Pre-fills the TDM table from the CCU Care Plan & TDM Documentation Template using data
-  // already captured in Daily Rounds. Result/Date and Follow-Up Action are left blank —
-  // those require an actual drawn level and a clinical decision, not something to auto-fill.
-  function exportTdmConsultNote(pid){
-    var p = state.patients.find(function(p){ return p.id === pid; });
-    if(!p) return;
+  // ================= DAILY ROUNDS PRINT =================
+  var ORIGINAL_TITLE = document.title;
 
-    var todayLong = new Date().toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" });
-
-    var html = '<div class="print-header">' +
-      '<h1>TDM Documentation Note</h1>' +
-      '<div class="print-meta">Generated ' + genTimestamp() + '</div>' +
-    '</div>';
-
-    html += '<table class="print-table" style="margin-bottom:18px;"><tbody>' +
-      '<tr><td style="width:50%;"><strong>Patient Name / MRN:</strong> ' + escapeHtml(p.name) + (p.room ? ' (Room ' + escapeHtml(p.room) + ')' : '') + '</td>' +
-        '<td><strong>Date:</strong> ' + todayLong + '</td></tr>' +
-      '<tr><td><strong>Admitting Diagnosis:</strong> ' + (p.dx ? escapeHtml(p.dx) : '&nbsp;') + '</td>' +
-        '<td><strong>Pharmacist:</strong> &nbsp;</td></tr>' +
-    '</tbody></table>';
-
-    html += '<div class="print-section"><h2>Therapeutic Drug Monitoring (TDM) Documentation</h2>';
-    html += '<table class="print-table"><thead><tr>' +
-      '<th>Drug</th><th>Target Parameter(s)</th><th>Monitoring Frequency</th><th>Result / Date</th><th>Follow-Up Action Taken</th>' +
-    '</tr></thead><tbody><tr>' +
-      '<td>' + (p.tdmAgent ? escapeHtml(p.tdmAgent) : '&nbsp;') + '</td>' +
-      '<td>' + (p.tdmTarget ? escapeHtml(p.tdmTarget) : '&nbsp;') + '</td>' +
-      '<td>' + (p.tdmFrequency ? escapeHtml(p.tdmFrequency) : '&nbsp;') + '</td>' +
-      '<td>&nbsp;</td>' +
-      '<td>&nbsp;</td>' +
-    '</tr></tbody></table>';
-    if(p.tdmNextTrough) html += '<p class="print-dim" style="margin-top:6px;">Next trough due: ' + formatDateTime(p.tdmNextTrough) + '</p>';
-    html += '</div>';
-
-    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
-
-    document.getElementById("print-area").innerHTML = html;
-    document.title = "TDM Note - " + p.name;
-    window.print();
-  }
-
-  function exportAllPatients(){
-    if(state.patients.length === 0){
-      alert("No patients to export yet.");
-      return;
-    }
-    var groups = groupedPatients();
-    var ordered = UNIT_ORDER.reduce(function(acc, k){ return acc.concat(groups[k]); }, []);
-
-    var html = '<div class="print-header">' +
-      '<h1>Full Roster — Detailed Summary</h1>' +
-      '<div class="print-meta">Generated ' + genTimestamp() + ' · ' + ordered.length + ' patient(s)</div>' +
-    '</div>';
-    ordered.forEach(function(p, idx){
-      html += buildPatientBlockHtml(p);
-      if(idx < ordered.length - 1) html += '<div class="print-pagebreak"></div>';
-    });
-    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
-
-    document.getElementById("print-area").innerHTML = html;
-    document.title = "Full Roster - Detailed Summary";
-    window.print();
+  function genTimestamp(){
+    var now = new Date();
+    return now.toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" }) +
+      " at " + now.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
   }
 
   // Groups open follow-up tasks by area for the printed rounds report, so items generated from
@@ -2325,7 +2117,8 @@
     '</div>';
 
     return '<tr>' +
-      '<td>' + escapeHtml(p.name) + '<div class="print-dim" style="margin-top:2px;">Room ' + escapeHtml(p.room || "—") + (p.age ? " · Age " + escapeHtml(p.age) : "") + '</div>' + statusCell + '</td>' +
+      '<td>' + escapeHtml(patientTitle(p)) + (p.age ? '<div class="print-dim" style="margin-top:2px;">Age ' + escapeHtml(p.age) + '</div>' : '') +
+        '<div class="print-dim" style="margin-top:4px;">Bed: ________</div>' + statusCell + '</td>' +
       '<td style="max-width:170px; word-wrap:break-word;">' + dxCell + '</td>' +
       '<td class="print-focus-cell">' + focusCell + '</td>' +
       '<td>' + todoCell + '</td>' +
@@ -2355,18 +2148,21 @@
       html += '</tbody></table></div>';
     });
 
-    html += '<div class="print-footer">Created by G. Hopkins, RPh</div>';
+    html += '<div class="print-footer">Confidential &mdash; shred after rounds &middot; Created by G. Hopkins, RPh</div>';
 
     document.getElementById("print-area").innerHTML = html;
     document.title = "Daily Rounds - " + todayStr();
     window.print();
   }
 
+  // Empty the print area afterwards so a later Ctrl+P can't reprint a stale list.
   window.addEventListener("afterprint", function(){
     document.title = ORIGINAL_TITLE;
+    document.getElementById("print-area").innerHTML = "";
   });
 
   // ================= INIT =================
+  renderPrivacyNotices();
   renderPatients();
 
 })();
