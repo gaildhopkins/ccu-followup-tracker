@@ -599,13 +599,15 @@
   var GU_YN_OPTIONS = ["", "Y", "N"];
   var ID_ONABX_OPTIONS = ["", "Y", "N"];
   var GU_HD_SCHEDULE_OPTIONS = ["", "MWF", "TTS", "Daily R/A"];
-  // Rendered as two rows: the first 8 (general/Cr/output/dialysis) then the remaining 2 (foley/imaging).
+  // Rendered as two rows: the first 6 (general/Cr/output/balance/foley) then dialysis/PD/imaging.
   // Schedule only shows once Hemodialysis is set to Y.
+  // CrCl is entered in the patient banner (next to EF and A1C), not in the GU form — it stays in this
+  // list (marked banner: true) so the Daily and Workup notes still report it under GU.
   var WORKUP_GU_FIELDS = [
     { label: "General", field: "workupGuGeneral" },
     { label: "Current Cr", field: "workupGuCurrentCr" },
     { label: "Baseline Cr", field: "workupGuBaselineCr" },
-    { label: "CrCl", field: "crcl" },
+    { label: "CrCl", field: "crcl", banner: true },
     { label: "Urine Output", field: "workupGuUrineOutput" },
     { label: "Balance", field: "workupGuBalance" },
     { label: "Foley Date", field: "workupGuFoleyDate", type: "date" },
@@ -614,6 +616,7 @@
     { label: "PD", field: "workupGuPd", options: GU_YN_OPTIONS },
     { label: "Imaging", field: "workupGuImaging" },
   ];
+  var WORKUP_GU_FORM_FIELDS = WORKUP_GU_FIELDS.filter(function(f){ return !f.banner; });
   var WORKUP_HEME_FIELDS = [
     { label: "Current Hgb", field: "workupHemeCurrent" },
     { label: "Baseline", field: "workupHemeBaseline" },
@@ -971,8 +974,8 @@
     html += '<div class="workup-subtitle">GI</div>' + workupFieldsRowHtml(p, WORKUP_GI_FIELDS);
 
     html += '<div class="workup-subtitle">GU</div>' +
-      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(0, 7)) +
-      workupFieldsRowHtml(p, WORKUP_GU_FIELDS.slice(7));
+      workupFieldsRowHtml(p, WORKUP_GU_FORM_FIELDS.slice(0, 6)) +
+      workupFieldsRowHtml(p, WORKUP_GU_FORM_FIELDS.slice(6));
 
     html += '<div class="workup-subtitle">ID</div>' +
       '<div class="rounds-head-row">' +
@@ -1424,6 +1427,7 @@
             UNIT_ORDER.map(function(u){ return '<option value="' + u + '"' + (p.unit === u ? " selected" : "") + '>' + UNIT_LABELS[u] + '</option>'; }).join("") +
           '</select></div>' +
           '<div class="rounds-field"><label>A1C</label><input type="text" value="' + escapeHtml(p.a1cLevel) + '" data-field="a1cLevel" data-pid="' + p.id + '" style="width:65px;"></div>' +
+          '<div class="rounds-field"><label>CrCl</label><input type="text" value="' + escapeHtml(p.crcl) + '" data-field="crcl" data-pid="' + p.id + '" placeholder="mL/min" style="width:75px;"></div>' +
         '</div>' +
         buildWorkupSectionHtml(p) +
         buildBarriersSectionHtml(p) +
